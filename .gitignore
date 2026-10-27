@@ -1,0 +1,10 @@
+# Terraform state can contain account details and secrets. Never commit it.
+**/.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+crash.log
+terraform.tfvars
+
+# Raw logs pulled down for evidence must be sanitized before committing
+evidence/raw/
