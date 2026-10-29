@@ -95,3 +95,13 @@ Eight selected IAM records from a delivered CloudTrail file were processed witho
 The real IAM scheduled alert fired, its original screenshot was saved privately, and the alert was disabled. The dashboard now includes one real IAM attachment finding. This remains a manual processing and upload path; it is not a continuous detection-latency measurement.
 
 The Python suite now passes 41 tests, and the new scenario module adds two mock tests to the existing seven. See the [investigation](INVESTIGATION_IAM_POLICY.md) and [sanitized evidence](evidence/iam-scenario-verification.json). Cost Explorer access was denied, so actual project charges remain unverified.
+
+## Automatic processing
+
+The S3-triggered Lambda is deployed and its CloudTrail-prefix notification is enabled. An existing versioned object produced 17 accepted records; replay reused the checked output, and Athena read all 17. A new CloudTrail delivery then produced 75 accepted records automatically, including the harmless bucket-read verification event. An Athena query found that event once. Both tested documents had no failed documents or quarantined records.
+
+A deliberately invalid notification reached the encrypted failure queue after two invocation attempts. Only that exact test message was acknowledged. The queue then showed zero visible and in-flight messages. The final Terraform plan reported no changes.
+
+The local suite now passes 52 Python tests and 12 Terraform mock tests. The three new automation mock tests cover disabled-by-default notifications, filtered enablement, runtime permissions and retention, and the shared-concurrency option needed by the small account quota. Live processing uses the account's shared limit of ten, with no per-function reservation. See [automation details](AUTOMATION.md) and [aggregate evidence](evidence/automation-verification.json).
+
+The billing console showed an estimated USD 0.00 with the bill pending. This is a current-period account estimate, not a final project total. Logging and automatic transformation remain active; Splunk forwarding and detection scheduling are still manual.

@@ -1,0 +1,72 @@
+{
+  "deployment": "Verified and active",
+  "resources_created": 10,
+  "post_deployment_plan": "No changes",
+  "local_python_tests": 52,
+  "automation_terraform_mock_tests": 3,
+  "total_terraform_mock_tests": 12,
+  "provisioning_policy_access_analyzer_findings": 0,
+  "provisioning_policy_form": "Customer-managed due to inline policy size limit",
+  "raw_bucket_previous_notifications": "None observed",
+  "package": {
+    "sha256": "06f53142e079de76f6670ab3da0d642f096d5b8e4b0050584ef6944bef0c4279",
+    "base64sha256": "BvUxQuB53nb2Zwqz2g1kLwltW45LAFBYTvaUS+8MQnk=",
+    "uncompressed_bytes": 168219637,
+    "zip_bytes": 53931985,
+    "wheel_sha256": "6a628922ba20705fa964ca73e4ef959c2fb2f14b9bbec5589a6a1e68e6257c85"
+  },
+  "runtime": {
+    "python": "3.12",
+    "architecture": "x86_64",
+    "memory_mb": 512,
+    "timeout_seconds": 60,
+    "reserved_concurrency": null,
+    "observed_account_shared_concurrency_limit": 10
+  },
+  "manual_check": {
+    "accepted_records": 17,
+    "failed_documents": 0,
+    "quarantined_records": 0,
+    "replay_reused": true,
+    "encrypted_artifacts_verified": 2,
+    "native_lambda_import_succeeded": true
+  },
+  "manual_athena": {
+    "query_id": "8937a26e-a70f-45fd-ad3f-38b093aa184e",
+    "count": 17,
+    "bytes_scanned": 0
+  },
+  "automatic_check": {
+    "new_completed_runs": 1,
+    "verification_event_found": true,
+    "accepted_records": 75,
+    "failed_documents": 0,
+    "quarantined_records": 0,
+    "source_sha256": "915afd0f38090ca9ae2865dce132d6696bc31f9e0f5d28ff212967dbcb51f832",
+    "region": "us-east-1"
+  },
+  "automatic_athena": {
+    "query_id": "10bb83e2-58f5-483c-a5f2-a03f07b194ce",
+    "count": 1,
+    "bytes_scanned": 6571
+  },
+  "failure_destination": {
+    "controlled_failure_received": true,
+    "invocation_attempts": 2,
+    "error_type": "ValueError",
+    "controlled_message_acknowledged": true,
+    "queue_counts_after_acknowledgment": {
+      "ApproximateNumberOfMessages": "0",
+      "ApproximateNumberOfMessagesNotVisible": "0"
+    }
+  },
+  "notification_enabled": true,
+  "billing_estimate_usd": 0,
+  "billing_status": "Pending; account-wide current-period estimate, not a finalized project total",
+  "original_account_records": "Private outside Git",
+  "limitations": [
+    "Different source objects may contain repeated events",
+    "Publication across partitions is not atomic",
+    "Automatic processing does not forward to local Splunk or schedule detections"
+  ]
+}

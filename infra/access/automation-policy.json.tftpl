@@ -1,0 +1,52 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "InspectLambdaCapacity",
+      "Effect": "Allow",
+      "Action": ["lambda:GetAccountSettings"],
+      "Resource": "*"
+    },
+    {
+      "Sid": "ManageProjectProcessor",
+      "Effect": "Allow",
+      "Action": [
+        "lambda:CreateFunction", "lambda:GetFunction", "lambda:GetFunctionConfiguration", "lambda:GetFunctionCodeSigningConfig", "lambda:DeleteFunction",
+        "lambda:UpdateFunctionCode", "lambda:UpdateFunctionConfiguration", "lambda:ListVersionsByFunction",
+        "lambda:AddPermission", "lambda:RemovePermission", "lambda:GetPolicy", "lambda:InvokeFunction",
+        "lambda:PutFunctionConcurrency", "lambda:GetFunctionConcurrency", "lambda:DeleteFunctionConcurrency",
+        "lambda:PutFunctionEventInvokeConfig", "lambda:GetFunctionEventInvokeConfig", "lambda:DeleteFunctionEventInvokeConfig",
+        "lambda:TagResource", "lambda:UntagResource", "lambda:ListTags"
+      ],
+      "Resource": "arn:aws:lambda:us-east-1:${account_id}:function:cloud-detection-process-logs"
+    },
+    {
+      "Sid": "FindProcessorLogGroup",
+      "Effect": "Allow",
+      "Action": ["logs:DescribeLogGroups"],
+      "Resource": "*"
+    },
+    {
+      "Sid": "ManageProjectProcessorLogs",
+      "Effect": "Allow",
+      "Action": [
+        "logs:CreateLogGroup", "logs:DeleteLogGroup", "logs:PutRetentionPolicy", "logs:DeleteRetentionPolicy",
+        "logs:TagResource", "logs:UntagResource", "logs:ListTagsForResource", "logs:TagLogGroup", "logs:UntagLogGroup", "logs:ListTagsLogGroup",
+        "logs:DescribeLogStreams", "logs:GetLogEvents", "logs:FilterLogEvents"
+      ],
+      "Resource": ["arn:aws:logs:us-east-1:${account_id}:log-group:/aws/lambda/cloud-detection-process-logs", "arn:aws:logs:us-east-1:${account_id}:log-group:/aws/lambda/cloud-detection-process-logs:*"]
+    },
+    {
+      "Sid": "ManageProjectFailureQueue",
+      "Effect": "Allow",
+      "Action": ["sqs:CreateQueue", "sqs:DeleteQueue", "sqs:GetQueueUrl", "sqs:GetQueueAttributes", "sqs:SetQueueAttributes", "sqs:TagQueue", "sqs:UntagQueue", "sqs:ListQueueTags", "sqs:ReceiveMessage", "sqs:DeleteMessage"],
+      "Resource": "arn:aws:sqs:us-east-1:${account_id}:cloud-detection-processing-failures"
+    },
+    {
+      "Sid": "ManageAutomatedEventTable",
+      "Effect": "Allow",
+      "Action": ["glue:CreateTable", "glue:GetTable", "glue:GetTables", "glue:UpdateTable", "glue:DeleteTable", "glue:GetTableVersion", "glue:GetTableVersions", "glue:GetPartitions", "glue:GetPartition"],
+      "Resource": ["arn:aws:glue:us-east-1:${account_id}:catalog", "arn:aws:glue:us-east-1:${account_id}:database/cloud_detection", "arn:aws:glue:us-east-1:${account_id}:table/cloud_detection/automated_events"]
+    }
+  ]
+}
