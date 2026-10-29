@@ -1,0 +1,48 @@
+{
+  "scenario": "Controlled IAM managed-policy attachment",
+  "mitre_technique": "T1098.003",
+  "aws_resources_added": 3,
+  "aws_resources_removed": 3,
+  "permission": "s3:GetBucketLocation on the project raw bucket only",
+  "checks": {
+    "only_expected_policy": true,
+    "access_keys": 0,
+    "login_profile": false,
+    "user_removed": true,
+    "policy_removed": true
+  },
+  "selected_cloudtrail_records": 8,
+  "event_counts": {
+    "AttachUserPolicy": 1,
+    "CreatePolicy": 1,
+    "DetachUserPolicy": 1,
+    "GetPolicy": 2,
+    "GetPolicyVersion": 1,
+    "GetUser": 1,
+    "ListAttachedUserPolicies": 1
+  },
+  "parquet_records": 8,
+  "combined_real_records": 34,
+  "python_iam_findings": 1,
+  "athena_iam": {
+    "query_id": "e0003ef3-5050-460d-a902-c539c39aadd9",
+    "count": 1,
+    "bytes_scanned": 665
+  },
+  "splunk_search_findings": 1,
+  "splunk_scheduled_alert": "Fired; screenshot saved; now disabled",
+  "cost_review": "Cost Explorer access denied; actual charges unverified",
+  "raw_evidence": "Private outside Git",
+  "splunk_real_events": 34,
+  "splunk_iam_findings": 1,
+  "scheduled_alert_notifications": "Internal Triggered Alerts only",
+  "source_file_sha256": [
+    "2afb6ae14a51cc21139deb2cfbb5dc0203375aa9dced6ffd95bf98643525e4ee"
+  ],
+  "source_event_investigation": {
+    "actor_matches_execution_identity": true,
+    "target_matches_dedicated_lab_user": true,
+    "policy_scope_matches_planned_bucket_location_only": true,
+    "matching_detachment_in_delivered_sample": true
+  }
+}

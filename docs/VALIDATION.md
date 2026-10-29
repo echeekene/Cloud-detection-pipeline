@@ -85,3 +85,13 @@ The [Athena evidence report](evidence/athena-verification.json) records the quer
 The full Python suite passes **38 tests**. New tests cover the labeled Splunk export, boolean/null handling, original event times, protection against overwriting existing files, and dashboard XML parsing. The prepared exports contain **3 synthetic events** and **26 real events**.
 
 Splunk indexed the samples locally. The private Cloud Detection Lab dashboard shows 26 real events, 3 synthetic events, 1 synthetic no-MFA finding, and 0 real no-MFA findings. These agree with Athena. We corrected a time-zone mistake and restricted the searches to the corrected source type; the first imports remain in the lab index as troubleshooting history. A private scheduled synthetic alert fired and was disabled after verification. Trigger evidence is saved privately. No collector token or outbound notification was created, and this step added no AWS resources or queries. See [the Splunk notes](SPLUNK.md).
+
+## Controlled IAM scenario
+
+The separate scenario module created a temporary user, a policy allowing only the project bucket's location to be read, and their attachment. The user had no access keys or login profile. The three resources were removed, and IAM read-back confirmed the user and policy were absent.
+
+Eight selected IAM records from a delivered CloudTrail file were processed without rejects. The source event confirmed the actor, target user, and policy scope against the execution receipts. Python, Athena, and Splunk each identified one successful managed-policy attachment. The expanded real sample contains 34 events; the synthetic sample remains three events with one no-MFA finding.
+
+The real IAM scheduled alert fired, its original screenshot was saved privately, and the alert was disabled. The dashboard now includes one real IAM attachment finding. This remains a manual processing and upload path; it is not a continuous detection-latency measurement.
+
+The Python suite now passes 41 tests, and the new scenario module adds two mock tests to the existing seven. See the [investigation](INVESTIGATION_IAM_POLICY.md) and [sanitized evidence](evidence/iam-scenario-verification.json). Cost Explorer access was denied, so actual project charges remain unverified.

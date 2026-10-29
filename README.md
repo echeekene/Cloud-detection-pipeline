@@ -1,10 +1,10 @@
 # Cloud Detection Pipeline
 
-A cloud security data pipeline that collects AWS account activity with CloudTrail, transforms the logs into partitioned Parquet datasets, and detects successful console logins without MFA using SQL and Splunk.
+A cloud security data pipeline that collects AWS account activity with CloudTrail, transforms logs into partitioned Parquet datasets, and detects IAM policy attachments and successful console logins without MFA using SQL and Splunk.
 
 This portfolio project combines real AWS audit logs with labeled synthetic detection tests. Terraform defines the AWS infrastructure, Python validates and transforms the events, and Athena and Splunk query the same normalized data.
 
-The current implementation uses manual sample processing and uploads. CloudTrail collection runs in AWS, transformation runs locally, and Splunk runs on a local installation. A scheduled synthetic alert was verified and then disabled.
+The current implementation uses manual sample processing and uploads. CloudTrail collection runs in AWS, transformation runs locally, and Splunk runs on a local installation. Scheduled alerts were verified for a synthetic login and a real controlled IAM policy change, then disabled after evidence was saved.
 
 ## Tech Stack
 
@@ -71,19 +71,22 @@ The rule is implemented in [Python](cloud_detection/pipeline.py), [Athena SQL](s
 
 The Splunk test alert used an All time search and a temporary one-minute schedule. It added findings to Triggered Alerts without outbound notifications. The schedule fired and was disabled after verification. Its [settings and result](splunk/alerts/synthetic_no_mfa_test.md) are documented separately.
 
+A second rule flags successful `AttachUserPolicy` events from `iam.amazonaws.com`. It was checked against a real, reversible IAM change: a dedicated user received only permission to read the project bucket's location, with no password or access keys. The event passed through CloudTrail storage, Python, Parquet, Athena, and Splunk, where a scheduled alert fired. The permission, policy, and user were removed. This behavior maps to [MITRE ATT&CK T1098.003](https://attack.mitre.org/techniques/T1098/003/), but the exercise demonstrates a benign permission change rather than an actual compromise.
+
 ## Results and Dashboard
 
-Three real CloudTrail files contained 26 records. All 26 were converted to Parquet without rejected records. A harmless `GetBucketVersioning` action was located in the delivered logs to verify collection.
+The initial sample contained 26 records from three real CloudTrail files, including a harmless `GetBucketVersioning` verification action. Eight selected IAM scenario records expanded the dataset to 34 real events, all accepted without rejects.
 
 | Check | Real sample | Synthetic sample |
 | --- | --- | --- |
-| Events read by Athena | 26 | 3 |
-| Events shown in Splunk | 26 | 3 |
+| Events read by Athena | 34 | 3 |
+| Events shown in Splunk | 34 | 3 |
 | Successful logins without MFA | 0 | 1 |
+| Managed IAM policy attachments | 1 | 0 |
 
 ![Splunk dashboard with real and synthetic event counts and no-MFA findings](docs/images/splunk-dashboard.jpg)
 
-The single finding is synthetic. Zero findings in the small real sample is not a security assessment of the account. A controlled AWS security scenario and complete investigation have not yet been demonstrated.
+The no-MFA finding is synthetic; the IAM finding comes from the controlled AWS scenario. Zero real no-MFA findings is not a security assessment of the account. The [investigation report](docs/INVESTIGATION_IAM_POLICY.md) separates the observed behavior from the test's limitations.
 
 [Validation notes](docs/VALIDATION.md) and [aggregate evidence reports](docs/evidence/) record the checks. Raw account logs, credentials, Terraform state, and screenshots containing account details are excluded from the repository.
 
@@ -105,7 +108,7 @@ See [AWS deployment](docs/DEPLOYMENT.md), [Athena setup](docs/ATHENA.md), and [S
 
 ## Testing
 
-The suite contains **38 Python tests** and **7 Terraform mock tests**. Coverage includes invalid events, UTC boundaries, missing MFA values, duplicate conflicts, bounded input handling, output integrity, replay behavior, SQL agreement, and labeled Splunk exports.
+The suite contains **41 Python tests** and **9 Terraform mock tests**. Coverage includes invalid events, UTC boundaries, missing MFA values, duplicate conflicts, bounded input handling, output integrity, replay behavior, SQL agreement, labeled Splunk exports, and the narrow IAM scenario configuration.
 
 GitHub Actions runs the Python suite, synthetic example, ETL example, Terraform formatting, validation, and mock tests. Hosted [Python tests](https://github.com/echeekene/Cloud-detection-pipeline/actions/runs/40805508123) and [Terraform checks](https://github.com/echeekene/Cloud-detection-pipeline/actions/runs/40805508126) passed. Mock tests do not deploy resources or prove live AWS behavior; live checks are documented separately.
 
@@ -133,7 +136,7 @@ See [design decisions](docs/DECISIONS.md) for further context.
 ## Known Limitations
 
 - The deployed path has no automatic transformation trigger, continuous Splunk forwarding, or active security alert schedule.
-- The real sample contains only 26 records. Detection coverage is limited to one console-login rule.
+- The expanded real sample contains only 34 records. Detection coverage includes console logins without MFA and successful managed-policy attachments to IAM users. An attachment finding requires investigation; the rule does not determine whether the added permissions are excessive.
 - The first Splunk imports had incorrect time-zone interpretation. Those records remain stored in the lab index; searches explicitly select the corrected UTC source type.
 - Athena results and the dashboard reflect selected snapshots rather than all current account activity.
 - The deployment identity has broader existing IAM permissions. Project-scoped analytics permissions do not make the whole account least privilege.
@@ -155,6 +158,7 @@ examples/           Synthetic CloudTrail sample
 tests/              Python and SQL behavior tests
 infra/foundation/   CloudTrail and raw S3 storage
 infra/analytics/    Analytics storage, sample uploads, Glue, and Athena
+infra/scenario/     Temporary IAM test user, narrow policy, and attachment
 infra/access/       Analytics permission template
 scripts/            Snapshot preparation and Athena verification helpers
 sql/                Detection query and reference table definition
@@ -165,6 +169,6 @@ docs/               Setup, data model, decisions, limitations, and evidence
 
 ## Planned Extensions
 
-The next stage is one controlled AWS security scenario with detection, investigation, and reversal. Later work includes automatic log processing, an investigation report with a MITRE ATT&CK mapping, a protected read-only findings API, digest validation, and tested cleanup. AI summaries and a randomized simulator are optional stretch additions.
+The controlled IAM scenario has been executed and reversed, and its events are queryable in Athena and Splunk. The [investigation report](docs/INVESTIGATION_IAM_POLICY.md) records the verification status and limitations. Later work includes automatic log processing, a protected read-only findings API, digest validation, and tested cleanup of the main AWS infrastructure. AI summaries and a randomized simulator are optional stretch additions.
 
 The [roadmap](docs/ROADMAP.md) separates these planned extensions from the implemented system.

@@ -11,7 +11,7 @@ We are building this to learn cloud security and data processing. This list help
 | Clean the data | Read compressed files, handle bad records, write Parquet | Working locally |
 | Query in AWS | Put the cleaned files in S3 and try Athena | Working; 26 real rows, 3 synthetic rows, and the expected test finding verified |
 | Splunk | Send events to a SIEM and try an alert/dashboard | Sample imports, searches, dashboard, and scheduled synthetic alert checked; test alert now disabled |
-| Simulations | Generate controlled test activity and see what gets caught | Still to build |
+| Simulations | Generate controlled test activity and see what gets caught | Real IAM policy change detected in Python, Athena, and Splunk; alert verified and disabled; temporary resources removed |
 | Automation | Process newly delivered logs with an S3-triggered Lambda | Planned; processing is still manual |
 | Findings API | Read findings and events through a protected API | Planned; no endpoint deployed |
 | AI | Try explaining a finding in plain English | Later; scope still open |
@@ -38,7 +38,7 @@ The Motorsport sample is a reference for explaining the architecture, choices, l
 ## Next piece to review together
 
 1. Completed: publish the existing repository and verify hosted Python and Terraform workflows.
-2. Run one controlled AWS security scenario with detection, investigation, and reversal using a dedicated test identity.
+2. Completed: controlled IAM policy attachment, investigation, scheduled alert verification, and resource reversal using a dedicated test identity.
 3. Automate processing of new CloudTrail logs with an S3-triggered Lambda, including failure and replay handling.
 4. Write the investigation report, map the activity to a relevant MITRE ATT&CK technique, and update the architecture diagram.
 5. Add a protected read-only findings API with input validation, parameterized queries, timeouts, endpoint tests, and an OpenAPI specification.

@@ -42,6 +42,14 @@
   </row>
   <row>
     <panel>
+      <title>Real IAM policy attachments</title>
+      <single>
+        <search base="events"><query>search sample_kind="live" event_source="iam.amazonaws.com" event_name="AttachUserPolicy" outcome="success" | stats count AS findings</query></search>
+      </single>
+    </panel>
+  </row>
+  <row>
+    <panel>
       <title>Event outcomes by sample</title>
       <table><search base="events"><query>stats count AS events BY sample_kind outcome</query></search></table>
     </panel>

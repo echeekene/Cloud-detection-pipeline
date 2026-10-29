@@ -106,3 +106,7 @@ The destroy removes the lab tables, partitions, workgroup, sample objects, and b
 After attaching the policy, IAM's simulator showed the new actions as allowed, but our existing temporary session still received access-denied errors. Refreshing the developer login fixed access for this session. We checked again before deploying, rather than adding a broader policy.
 
 The console also started on the default `primary` workgroup. We switched to `cloud-detection-queries`, where our policy and query limits apply.
+
+## Expanded IAM sample
+
+The controlled IAM scenario added eight selected real records to the original 26, giving 34 real rows across two UTC partitions. The synthetic table still contains three rows. The IAM attachment SQL returned one finding, while the no-MFA checks stayed at zero real findings and one synthetic finding. Storage protections and the workgroup query limit stayed unchanged. See the [scenario investigation](INVESTIGATION_IAM_POLICY.md) and its separate evidence report for the new result; the earlier 26-row evidence remains the baseline.

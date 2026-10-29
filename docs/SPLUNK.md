@@ -90,3 +90,9 @@ The existing Splunk trial was close to ending when checked. We did not change th
 - [Splunk configuration reference](https://help.splunk.com/en/splunk-enterprise/administer/admin-manual/10.4/configuration-file-reference/10.4.4-configuration-file-reference/props.conf)
 
 HTTP Event Collector is a possible later step. The first manual upload helps us check the event format before adding a token and a network endpoint.
+
+## Real IAM scenario
+
+Eight selected records from the real controlled IAM scenario were imported using the corrected UTC source type. The dashboard now shows 34 real events and one real IAM policy attachment, alongside the unchanged three synthetic events and one synthetic no-MFA finding. The IAM SPL search returned the same attachment event identified in Athena and Python.
+
+A separate private scheduled IAM alert fired and was disabled after evidence was saved. Its only action was Add to Triggered Alerts. See the [investigation](INVESTIGATION_IAM_POLICY.md) and [alert settings](../splunk/alerts/iam_policy_attachment_test.md). The earlier 26-event results describe the initial baseline, rather than the expanded sample.

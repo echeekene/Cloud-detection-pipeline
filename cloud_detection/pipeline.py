@@ -73,7 +73,7 @@ def normalize(record: dict) -> dict:
 
 
 def detect(events: list[dict]) -> list[dict]:
-    return [
+    findings = [
         {
             "rule_id": "console-login-without-mfa",
             "event_id": event["event_id"],
@@ -88,3 +88,18 @@ def detect(events: list[dict]) -> list[dict]:
         and event["outcome"] == "success"
         and event["mfa_used"] is False
     ]
+    findings.extend(
+        {
+            "rule_id": "iam-managed-policy-attached",
+            "event_id": event["event_id"],
+            "event_time": event["event_time"],
+            "principal": event["principal"],
+            "source_ip": event["source_ip"],
+            "summary": "Managed IAM policy attached to a user; review the target and permissions in the source event.",
+        }
+        for event in events
+        if event["event_source"] == "iam.amazonaws.com"
+        and event["event_name"] == "AttachUserPolicy"
+        and event["outcome"] == "success"
+    )
+    return findings
