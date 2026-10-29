@@ -13,7 +13,7 @@ We are building this to learn cloud security and data processing. This list help
 | Splunk | Send events to a SIEM and try an alert/dashboard | Sample imports, searches, dashboard, and scheduled synthetic alert checked; test alert now disabled |
 | Simulations | Generate controlled test activity and see what gets caught | Real IAM policy change detected in Python, Athena, and Splunk; alert verified and disabled; temporary resources removed |
 | Automation | Process newly delivered logs with an S3-triggered Lambda | Deployed; automatic delivery, Athena read-back, replay, and failure destination verified |
-| Findings API | Read findings and events through a protected API | Planned; no endpoint deployed |
+| Findings API | Read findings and events through a protected API | Code, Terraform, OpenAPI spec, and tests written; not yet deployed |
 | AI | Try explaining a finding in plain English | Later; scope still open |
 | Finish and clean up | Explain the project, record costs, remove lab resources | Still to finish |
 
@@ -41,7 +41,7 @@ The Motorsport sample is a reference for explaining the architecture, choices, l
 2. Completed: controlled IAM policy attachment, investigation, scheduled alert verification, and resource reversal using a dedicated test identity.
 3. Completed: S3-triggered Lambda processing with checked replay and a verified failure destination.
 4. Write the investigation report, map the activity to a relevant MITRE ATT&CK technique, and update the architecture diagram.
-5. Add a protected read-only findings API with input validation, parameterized queries, timeouts, endpoint tests, and an OpenAPI specification.
+5. Built, awaiting deployment: protected read-only findings API with input validation, parameterized queries, timeouts, endpoint tests, and an OpenAPI specification. See [API.md](API.md).
 6. Validate the CloudTrail digest chain.
 7. Measure costs, test AWS teardown, and finish the README and portfolio writeup.
 

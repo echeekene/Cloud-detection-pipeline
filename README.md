@@ -19,6 +19,7 @@ New CloudTrail files are processed automatically by an [S3-triggered Lambda](doc
 | Local queries | DuckDB | Check SQL behavior against local datasets |
 | Catalog and queries | AWS Glue and Athena | Describe partitions and query the analytics data |
 | Security monitoring | Splunk Enterprise | Search events, display findings, and test scheduled alerts |
+| Findings API | API Gateway, Lambda, and Athena | Read-only, IAM-signed access to findings and events (written, not yet deployed) |
 | Automated checks | GitHub Actions | Run Python tests and Terraform validation and mock tests |
 
 ## Architecture
@@ -115,7 +116,7 @@ See [AWS deployment](docs/DEPLOYMENT.md), [Athena setup](docs/ATHENA.md), and [S
 
 ## Testing
 
-The local suite contains **52 Python tests** and **12 Terraform mock tests**. Coverage includes invalid events, UTC boundaries, missing MFA values, duplicate conflicts, bounded input handling, output integrity, replay behavior, SQL agreement, labeled Splunk exports, the narrow IAM scenario, and Lambda processing and packaging. Live checks verified native imports, an identical-event replay, automatic processing of a new log file, Athena read-back, and delivery of a controlled failure to SQS.
+The suite contains **65 Python tests** and **15 Terraform mock tests**; the three newest Terraform tests cover the findings API and still need their first run. Coverage includes invalid events, UTC boundaries, missing MFA values, duplicate conflicts, bounded input handling, output integrity, replay behavior, SQL agreement, labeled Splunk exports, the narrow IAM scenario, Lambda processing and packaging, and findings API validation, injection rejection, and timeouts. Live checks verified native imports, an identical-event replay, automatic processing of a new log file, Athena read-back, and delivery of a controlled failure to SQS.
 
 GitHub Actions runs the Python suite, synthetic example, ETL example, Terraform formatting, validation, and mock tests. Hosted [Python tests](https://github.com/echeekene/Cloud-detection-pipeline/actions/runs/40805508123) and [Terraform checks](https://github.com/echeekene/Cloud-detection-pipeline/actions/runs/40805508126) passed. Mock tests do not deploy resources or prove live AWS behavior; live checks are documented separately.
 
@@ -178,6 +179,6 @@ docs/               Setup, data model, decisions, limitations, and evidence
 
 ## Planned Extensions
 
-The controlled IAM scenario has been executed and reversed, and automatic log processing is verified. The [investigation report](docs/INVESTIGATION_IAM_POLICY.md) and [automation notes](docs/AUTOMATION.md) record the results and limitations. Remaining work includes a protected read-only findings API, digest validation, and tested cleanup of the main AWS infrastructure. AI summaries and a randomized simulator are optional stretch additions.
+The controlled IAM scenario has been executed and reversed, and automatic log processing is verified. The [investigation report](docs/INVESTIGATION_IAM_POLICY.md) and [automation notes](docs/AUTOMATION.md) record the results and limitations. A protected read-only [findings API](docs/API.md) is written and tested but not yet deployed. Remaining work includes deploying it, digest validation, and tested cleanup of the main AWS infrastructure. AI summaries and a randomized simulator are optional stretch additions.
 
 The [roadmap](docs/ROADMAP.md) separates these planned extensions from the implemented system.

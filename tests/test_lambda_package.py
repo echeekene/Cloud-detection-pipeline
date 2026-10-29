@@ -36,3 +36,16 @@ class LambdaPackageTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, 'manylinux'): build(wheel, digest, root/'out.zip')
             wheel, digest = self.wheel(root, unsafe=True)
             with self.assertRaisesRegex(ValueError, 'Unsafe'): build(wheel, digest, root/'out.zip')
+
+
+class ApiPackageTests(unittest.TestCase):
+    def test_api_package_is_deterministic_and_minimal(self):
+        from scripts.build_api_package import build as build_api
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            first, second = build_api(root/'a.zip'), build_api(root/'b.zip')
+            self.assertEqual(first['sha256'], second['sha256'])
+            with ZipFile(root/'a.zip') as archive:
+                self.assertEqual(sorted(archive.namelist()), ['cloud_detection/__init__.py', 'cloud_detection/api_handler.py'])
+            with self.assertRaisesRegex(ValueError, 'existing'):
+                build_api(root/'a.zip')

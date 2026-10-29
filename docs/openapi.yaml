@@ -1,0 +1,167 @@
+openapi: 3.0.3
+info:
+  title: Cloud Detection Findings API
+  version: 0.1.0
+  description: >
+    Read-only access to detection findings and normalized CloudTrail events stored in Athena.
+    Every route requires an AWS Signature Version 4 request signed by an identity holding the
+    module's route-scoped invoke policy. Requests are throttled to 2 per second with a burst of 5.
+servers:
+  - url: https://{apiId}.execute-api.us-east-1.amazonaws.com
+    variables:
+      apiId:
+        default: replace-with-api-id
+security:
+  - sigv4: []
+paths:
+  /detections:
+    get:
+      summary: List detection rules and their MITRE ATT&CK mapping
+      responses:
+        "200":
+          description: Detection catalog
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  detections:
+                    type: array
+                    items: { $ref: "#/components/schemas/Detection" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+  /findings:
+    get:
+      summary: Detection hits for a UTC date range in one region
+      parameters:
+        - $ref: "#/components/parameters/start"
+        - $ref: "#/components/parameters/end"
+        - $ref: "#/components/parameters/region"
+        - $ref: "#/components/parameters/dataset"
+        - $ref: "#/components/parameters/limit"
+        - name: detection
+          in: query
+          required: false
+          schema: { type: string, enum: [console_login_without_mfa, iam_managed_policy_attached] }
+      responses:
+        "200":
+          description: Matching findings, newest first
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ResultPage" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "502": { $ref: "#/components/responses/QueryFailed" }
+        "504": { $ref: "#/components/responses/QueryTimeout" }
+  /events:
+    get:
+      summary: Search normalized events by principal, source IP, action or outcome
+      parameters:
+        - $ref: "#/components/parameters/start"
+        - $ref: "#/components/parameters/end"
+        - $ref: "#/components/parameters/region"
+        - $ref: "#/components/parameters/dataset"
+        - $ref: "#/components/parameters/limit"
+        - name: principal
+          in: query
+          schema: { type: string, pattern: "^[A-Za-z0-9+=,.@_:/-]{1,256}$" }
+        - name: source_ip
+          in: query
+          schema: { type: string, description: IPv4 or IPv6 address }
+        - name: event_name
+          in: query
+          schema: { type: string, pattern: "^[A-Za-z0-9]{1,128}$", example: AttachUserPolicy }
+        - name: outcome
+          in: query
+          schema: { type: string, enum: [success, failure, unknown] }
+      responses:
+        "200":
+          description: Matching events, newest first
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ResultPage" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "502": { $ref: "#/components/responses/QueryFailed" }
+        "504": { $ref: "#/components/responses/QueryTimeout" }
+components:
+  securitySchemes:
+    sigv4:
+      type: apiKey
+      name: Authorization
+      in: header
+      description: AWS Signature Version 4 (API Gateway AWS_IAM authorization)
+  parameters:
+    start:
+      name: start
+      in: query
+      required: true
+      schema: { type: string, format: date, example: "2026-10-20" }
+    end:
+      name: end
+      in: query
+      required: true
+      description: Inclusive; the range may cover at most 31 days.
+      schema: { type: string, format: date, example: "2026-10-28" }
+    region:
+      name: region
+      in: query
+      required: true
+      schema: { type: string, example: us-east-1 }
+    dataset:
+      name: dataset
+      in: query
+      required: false
+      description: automated (Lambda output, default), live (manual real sample) or synthetic (labeled test events).
+      schema: { type: string, enum: [automated, live, synthetic], default: automated }
+    limit:
+      name: limit
+      in: query
+      required: false
+      schema: { type: integer, minimum: 1, maximum: 100, default: 50 }
+  responses:
+    BadRequest:
+      description: Validation failed
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    QueryFailed:
+      description: Athena reported a failure; details are logged, not returned
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    QueryTimeout:
+      description: The query exceeded 20 seconds and was cancelled
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+  schemas:
+    Error:
+      type: object
+      properties:
+        error: { type: string }
+    Detection:
+      type: object
+      properties:
+        id: { type: string }
+        name: { type: string }
+        description: { type: string }
+        severity: { type: string }
+        sql: { type: string }
+        mitre_attack:
+          type: object
+          properties:
+            id: { type: string }
+            name: { type: string }
+    ResultPage:
+      type: object
+      properties:
+        start: { type: string, format: date }
+        end: { type: string, format: date }
+        region: { type: string }
+        dataset: { type: string }
+        count: { type: integer }
+        truncated: { type: boolean, description: True when more rows matched than the limit }
+        query_execution_id: { type: string }
+        items:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
