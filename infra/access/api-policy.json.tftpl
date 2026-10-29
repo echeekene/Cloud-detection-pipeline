@@ -1,0 +1,24 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {"Sid": "IdentityAndCapacity", "Effect": "Allow", "Action": ["sts:GetCallerIdentity", "lambda:GetAccountSettings", "logs:DescribeLogGroups"], "Resource": "*"},
+    {"Sid": "ManageApiFunction", "Effect": "Allow",
+     "Action": ["lambda:CreateFunction", "lambda:GetFunction", "lambda:GetFunctionConfiguration", "lambda:GetFunctionCodeSigningConfig", "lambda:DeleteFunction", "lambda:UpdateFunctionCode", "lambda:UpdateFunctionConfiguration", "lambda:ListVersionsByFunction", "lambda:AddPermission", "lambda:RemovePermission", "lambda:GetPolicy", "lambda:PutFunctionConcurrency", "lambda:GetFunctionConcurrency", "lambda:DeleteFunctionConcurrency", "lambda:TagResource", "lambda:UntagResource", "lambda:ListTags"],
+     "Resource": "arn:aws:lambda:us-east-1:${account_id}:function:cloud-detection-findings-api"},
+    {"Sid": "ManageApiLogGroups", "Effect": "Allow",
+     "Action": ["logs:CreateLogGroup", "logs:DeleteLogGroup", "logs:PutRetentionPolicy", "logs:DeleteRetentionPolicy", "logs:TagResource", "logs:UntagResource", "logs:ListTagsForResource", "logs:TagLogGroup", "logs:ListTagsLogGroup"],
+     "Resource": ["arn:aws:logs:us-east-1:${account_id}:log-group:/aws/lambda/cloud-detection-findings-api", "arn:aws:logs:us-east-1:${account_id}:log-group:/aws/lambda/cloud-detection-findings-api:*", "arn:aws:logs:us-east-1:${account_id}:log-group:/aws/apigateway/cloud-detection-findings-api", "arn:aws:logs:us-east-1:${account_id}:log-group:/aws/apigateway/cloud-detection-findings-api:*"]},
+    {"Sid": "ApiAccessLogDelivery", "Effect": "Allow",
+     "Action": ["logs:CreateLogDelivery", "logs:GetLogDelivery", "logs:UpdateLogDelivery", "logs:DeleteLogDelivery", "logs:ListLogDeliveries", "logs:PutResourcePolicy", "logs:DescribeResourcePolicies"],
+     "Resource": "*"},
+    {"Sid": "ManageApiRole", "Effect": "Allow",
+     "Action": ["iam:CreateRole", "iam:GetRole", "iam:DeleteRole", "iam:TagRole", "iam:UntagRole", "iam:PutRolePolicy", "iam:GetRolePolicy", "iam:DeleteRolePolicy", "iam:ListRolePolicies", "iam:ListAttachedRolePolicies", "iam:ListInstanceProfilesForRole"],
+     "Resource": "arn:aws:iam::${account_id}:role/cloud-detection-findings-reader"},
+    {"Sid": "PassApiRoleToLambdaOnly", "Effect": "Allow", "Action": "iam:PassRole",
+     "Resource": "arn:aws:iam::${account_id}:role/cloud-detection-findings-reader",
+     "Condition": {"StringEquals": {"iam:PassedToService": "lambda.amazonaws.com"}}},
+    {"Sid": "ManageHttpApi", "Effect": "Allow",
+     "Action": ["apigateway:GET", "apigateway:POST", "apigateway:PUT", "apigateway:PATCH", "apigateway:DELETE", "apigateway:TagResource", "apigateway:UntagResource"],
+     "Resource": ["arn:aws:apigateway:us-east-1::/apis", "arn:aws:apigateway:us-east-1::/apis/*", "arn:aws:apigateway:us-east-1::/tags/*"]}
+  ]
+}

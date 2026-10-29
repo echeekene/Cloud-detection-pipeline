@@ -40,7 +40,7 @@ flowchart TD
     H --> I[Athena SQL detections]
     E --> J[Labeled JSON export]
     J --> K[Local Splunk dashboard and alerts]
-    I --> L[Findings API, written, not deployed]
+    I --> L[Findings API, partially deployed]
 ```
 
 1. **Collect.** A dedicated CloudTrail trail writes management events from every region to a private S3 bucket.
@@ -59,7 +59,7 @@ More detail: [data model](docs/DATA_MODEL.md), [automation](docs/AUTOMATION.md),
 | Processing | Python, PyArrow, AWS Lambda, Amazon SQS, CloudWatch Logs |
 | Querying | AWS Glue, Amazon Athena, DuckDB for local checks |
 | Security monitoring | Splunk Enterprise (local) |
-| API | API Gateway HTTP API with IAM authorization, Lambda, Athena |
+| API | API Gateway HTTP API with IAM authorization, Lambda, Athena (partially deployed) |
 | Testing | Python unittest, Terraform mock tests, GitHub Actions |
 
 ## Detections
@@ -92,7 +92,7 @@ Checks are recorded in [validation notes](docs/VALIDATION.md) and [evidence repo
 
 A small read only API lets an authorized caller list detections, pull findings for a date range, or search events by user, IP address or action. Every route requires signed IAM credentials and is throttled. User input never becomes part of the SQL: values are checked against strict patterns and passed to Athena as query parameters, and tests send common injection strings to every filter.
 
-**Status:** code, Terraform, an [OpenAPI specification](docs/openapi.yaml) and tests are written. It has not been deployed yet. See [API notes](docs/API.md).
+**Status:** code, Terraform, an [OpenAPI specification](docs/openapi.yaml) and tests are written and passing. Deployment created 11 of 12 resources; the stage that exposes the endpoint was blocked by a tagging permission, so the API is not reachable yet. See [API notes](docs/API.md) for where it stopped and how to resume.
 
 ## Running it locally
 
@@ -137,6 +137,8 @@ GitHub Actions runs the Python suite, both examples, and Terraform format, valid
 
 **My account could not reserve Lambda capacity.** The account quota was too small to cap the function at one execution, so I made reprocessing safe instead: output names are stable and every rerun checks file hashes before reusing results.
 
+**The API deployment stopped one resource short.** Access Analyzer flagged `apigateway:TagResource` as an invalid action, so I removed it from the deploy policy. API Gateway then required exactly that action to create the tagged stage. I added it back, and the IAM simulator allowed it, but the real call was still denied, so I stopped with 11 of 12 resources created and documented how to resume. *Lesson:* a policy validator and the service can disagree, so test the real call before trusting either.
+
 **I started over once.** My first version scaffolded VPC Flow Logs and GuardDuty alongside CloudTrail. I replaced it with a smaller pipeline built and tested one piece at a time, and kept the original history in Git.
 
 ## What I would do differently
@@ -176,4 +178,4 @@ docs/               Setup, decisions, investigation, API spec, evidence
 
 ## What is next
 
-Deploy and test the findings API, validate the CloudTrail digest chain, measure the final cost, and tear down the AWS resources with a tested procedure. AI summaries of findings and a randomized attack simulator are optional additions. Progress is tracked in the [roadmap](docs/ROADMAP.md).
+Finish deploying the findings API (one stage remains), validate the CloudTrail digest chain, measure the final cost, and tear down the AWS resources with a tested procedure. AI summaries of findings and a randomized attack simulator are optional additions. Progress is tracked in the [roadmap](docs/ROADMAP.md).

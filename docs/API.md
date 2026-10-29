@@ -2,7 +2,36 @@
 
 ## Status
 
-The API code, Terraform module, OpenAPI specification, and tests are written. **It has not been deployed**, so no live request has been made yet. Unit tests cover validation, injection attempts, query building, timeouts, failed queries, routing, and packaging. Terraform mock tests cover authorization, throttling, timeouts, log retention, and the read-only runtime policy.
+**Partially deployed, not yet reachable.** On October 29, 2026, 11 of the module's 12 resources were created from AWS CloudShell as `ekene-security-admin`: the HTTP API, integration, three IAM-protected routes, the Lambda function and its invoke permission, the read-only role and policy, and both log groups. The `$default` stage was not created, so the API has no reachable endpoint yet and no live request has been made.
+
+Before deployment, `terraform fmt`, `validate`, and all three Terraform mock tests passed in CloudShell, and the plan showed 12 to add, 0 to change, 0 to destroy. Unit tests cover validation, injection attempts, query building, timeouts, failed queries, routing, and packaging.
+
+## Where deployment stopped
+
+Creating the stage returned `AccessDenied` for `apigateway:TagResource` on `arn:aws:apigateway:us-east-1::/apis/vlz9fceigd/stages`. The provider's default tags make stage creation also tag the stage. That action was added to the deploy policy (version v2), and the IAM policy simulator then reported it **allowed** for that exact resource, yet three retries over about two minutes were still denied. Likely causes are IAM propagation delay or API Gateway evaluating tagging against a different resource than the message names. Access Analyzer also reported `apigateway:TagResource` as an invalid action, which conflicts with what the service enforces.
+
+## Resuming
+
+Terraform state for the 11 resources is in CloudShell (us-east-1, signed in as `ekene-security-admin`) at `~/cdp/infra/api/terraform.tfstate`. CloudShell keeps home directory files between sessions, but deletes them after 120 days without use. To keep a local copy, use CloudShell's Actions menu, Download file, with that path, and place it at `infra/api/terraform.tfstate` (Git ignores it).
+
+In CloudShell:
+
+```bash
+cd ~/cdp/infra/api && export PATH=~/bin:$PATH
+terraform plan -out next.tfplan    # expect: 1 to add, 0 to change, 0 to destroy
+terraform apply next.tfplan
+```
+
+If the stage is still denied, widen only the tag action's resource in `CloudDetectionApiDeploy` (for example to `arn:aws:apigateway:us-east-1::/*`) and retry. To remove the partial deployment instead, run `terraform destroy` from the same folder.
+
+After the stage exists, attach the `invoke_policy` output to a dedicated reader identity, make a first signed call with `scripts/call_api.py`, and confirm the `automated` dataset accepts its region filter as an execution parameter.
+
+## IAM changes made for deployment
+
+- Created the group `cloud-detection-deployers` and added `ekene-security-admin` to it, because the user already had the default maximum of ten attached managed policies.
+- Attached `AWSCloudShellFullAccess` and the customer-managed policy `CloudDetectionApiDeploy`, built from [api-policy.json.tftpl](../infra/access/api-policy.json.tftpl). It is scoped to this API's function, role, log groups, and HTTP APIs, plus the account-wide log-delivery actions API Gateway access logs require.
+- Root was used once, only to create the group and attach these policies.
+- `ekene-security-admin` already holds `IAMFullAccess`, so it can grant itself further permissions. This is a known gap in least privilege, not something this module introduced. Remove the group and policy during teardown.
 
 ## Request path
 
