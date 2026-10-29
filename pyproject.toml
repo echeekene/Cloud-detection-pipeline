@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cloud-detection-pipeline"
+version = "0.2.0"
+description = "CloudTrail normalization, evidence validation, and Parquet datasets"
+requires-python = ">=3.11"
+dependencies = ["pyarrow==26.0.0"]
+
+[project.optional-dependencies]
+test = ["duckdb==1.5.6"]
+
+[project.scripts]
+cloud-detection = "cloud_detection.__main__:main"
+
+[tool.setuptools.packages.find]
+include = ["cloud_detection*"]

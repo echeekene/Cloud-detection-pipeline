@@ -1,0 +1,34 @@
+{
+  "deployment": {
+    "added": 8,
+    "changed": 0,
+    "destroyed": 0
+  },
+  "security_checks": "passed",
+  "cloudtrail_logging": true,
+  "multi_region": true,
+  "global_service_events": true,
+  "digest_generation_enabled": true,
+  "digest_chain_validation": "not yet performed",
+  "nonempty_log_files_inspected": 3,
+  "delivered_records_inspected": 26,
+  "verified_management_event": "GetBucketVersioning",
+  "matching_successful_events": 1,
+  "delivered_objects_encryption": "AES256",
+  "latest_delivery_error": null,
+  "evidence_file_hashes": [
+    {
+      "sha256": "b56d8be2de212b0fe4cdf56c167bf10961ec9f6e5da74bb6d03a6482a4152ad2",
+      "records": 1
+    },
+    {
+      "sha256": "df1cc113f2121d846dd37d6ebf48c7eb3b76f1066b3148eaea40a7e580860bcd",
+      "records": 21
+    },
+    {
+      "sha256": "8ee1efb1cd59398649c21d06d2d8d7d0a6ade68719c421db07524da9d224a5ba",
+      "records": 4
+    }
+  ],
+  "notes": "Identifiers and raw records are excluded. This verifies collection, not a live security alert."
+}

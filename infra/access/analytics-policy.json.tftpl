@@ -1,0 +1,52 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "ListAthenaWorkgroups",
+      "Effect": "Allow",
+      "Action": ["athena:ListWorkGroups"],
+      "Resource": "*"
+    },
+    {
+      "Sid": "ManageProjectWorkgroupAndQueries",
+      "Effect": "Allow",
+      "Action": [
+        "athena:CreateWorkGroup", "athena:GetWorkGroup", "athena:UpdateWorkGroup", "athena:DeleteWorkGroup",
+        "athena:TagResource", "athena:UntagResource", "athena:ListTagsForResource",
+        "athena:StartQueryExecution", "athena:StopQueryExecution", "athena:GetQueryExecution",
+        "athena:GetQueryResults", "athena:ListQueryExecutions", "athena:BatchGetQueryExecution"
+      ],
+      "Resource": "arn:${partition}:athena:${aws_region}:${account_id}:workgroup/${project_name}-queries"
+    },
+    {
+      "Sid": "ReadDefaultAthenaCatalog",
+      "Effect": "Allow",
+      "Action": ["athena:GetDataCatalog"],
+      "Resource": "arn:${partition}:athena:${aws_region}:${account_id}:datacatalog/AwsDataCatalog"
+    },
+    {
+      "Sid": "ManageProjectGlueMetadata",
+      "Effect": "Allow",
+      "Action": [
+        "glue:CreateDatabase", "glue:GetDatabase", "glue:UpdateDatabase", "glue:DeleteDatabase",
+        "glue:CreateTable", "glue:GetTable", "glue:GetTables", "glue:UpdateTable", "glue:DeleteTable",
+        "glue:GetTableVersion", "glue:GetTableVersions",
+        "glue:CreatePartition", "glue:BatchCreatePartition", "glue:GetPartition", "glue:GetPartitions",
+        "glue:BatchGetPartition", "glue:UpdatePartition", "glue:DeletePartition", "glue:BatchDeletePartition",
+        "glue:TagResource", "glue:UntagResource", "glue:GetTags"
+      ],
+      "Resource": [
+        "arn:${partition}:glue:${aws_region}:${account_id}:catalog",
+        "arn:${partition}:glue:${aws_region}:${account_id}:database/${database}",
+        "arn:${partition}:glue:${aws_region}:${account_id}:table/${database}/security_events",
+        "arn:${partition}:glue:${aws_region}:${account_id}:table/${database}/synthetic_events"
+      ]
+    },
+    {
+      "Sid": "ListGlueDatabaseNames",
+      "Effect": "Allow",
+      "Action": ["glue:GetDatabases"],
+      "Resource": "arn:${partition}:glue:${aws_region}:${account_id}:catalog"
+    }
+  ]
+}

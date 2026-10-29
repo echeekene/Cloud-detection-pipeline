@@ -1,0 +1,29 @@
+{
+  "environment": "existing local Splunk Enterprise",
+  "index": "cloud_detection_lab",
+  "corrected_source_type": "cloud_detection_json_utc",
+  "timestamp_field": "event_time",
+  "timestamp_zone": "GMT",
+  "dashboard": {
+    "name": "Cloud Detection Lab",
+    "sharing": "Private",
+    "type": "Classic",
+    "real_events": 26,
+    "synthetic_events": 3,
+    "real_no_mfa_findings": 0,
+    "synthetic_no_mfa_findings": 1,
+    "outcomes": {
+      "live_success": 20,
+      "live_failure": 6,
+      "synthetic_success": 2,
+      "synthetic_failure": 1
+    }
+  },
+  "initial_incorrectly_timed_records_retained": 29,
+  "initial_imports_excluded_by_source_type": true,
+  "scheduled_alert_verified": true,
+  "outbound_notifications_created": false,
+  "new_aws_resources": 0,
+  "additional_athena_queries": 0,
+  "test_alert_cleanup": "Completed; test alert disabled"
+}

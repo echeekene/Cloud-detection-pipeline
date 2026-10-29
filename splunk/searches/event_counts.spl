@@ -1,0 +1,5 @@
+index=cloud_detection_lab sourcetype=cloud_detection_json_utc
+| search project="cloud_detection"
+| eval event_key=coalesce(account_id,"unknown").":".event_id
+| dedup dataset_id sample_kind event_key
+| stats count AS events BY sample_kind

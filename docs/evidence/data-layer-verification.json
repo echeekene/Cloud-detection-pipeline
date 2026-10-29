@@ -1,0 +1,20 @@
+{
+  "execution_scope": "local only; no new AWS resources or queries",
+  "python_tests_passed": 26,
+  "pyarrow_version": "26.0.0",
+  "duckdb_version": "1.5.6",
+  "live_cloudtrail_documents": 3,
+  "live_records_seen": 26,
+  "live_records_accepted": 26,
+  "live_records_quarantined": 0,
+  "live_documents_rejected": 0,
+  "live_duplicate_records": 0,
+  "live_partitions_written": 1,
+  "live_parquet_sql_row_count": 26,
+  "live_console_login_without_mfa_findings": 0,
+  "exact_replay_verified_without_new_files": true,
+  "synthetic_parquet_sql_row_count": 3,
+  "synthetic_console_login_without_mfa_findings": 1,
+  "athena_execution": "not yet performed",
+  "limitations": "Deduplication is scoped to one local snapshot. This is not an incremental cloud pipeline or proof of an Athena/Splunk alert."
+}

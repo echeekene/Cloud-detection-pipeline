@@ -1,0 +1,6 @@
+# Copy to terraform.tfvars, then replace the account and confirm the region.
+expected_account_id = "000000000000"
+aws_region          = "us-east-1"
+project_name        = "cloud-detection"
+log_retention_days  = 30
+allow_log_deletion  = false

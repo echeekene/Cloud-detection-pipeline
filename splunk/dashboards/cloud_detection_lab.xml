@@ -1,0 +1,49 @@
+<dashboard version="1.1" theme="light">
+  <label>Cloud Detection Lab</label>
+  <description>CloudTrail event counts, login detections, and outcomes from manually uploaded samples. Real and synthetic events are labeled separately. Panels include all available sample events.</description>
+  <search id="events">
+    <query><![CDATA[index=cloud_detection_lab sourcetype=cloud_detection_json_utc
+| search project="cloud_detection"
+| eval event_key=coalesce(account_id,"unknown").":".event_id
+| dedup dataset_id sample_kind event_key
+| fields sample_kind event_source event_name outcome mfa_used event_id event_time principal source_ip]]></query>
+    <earliest>0</earliest>
+    <latest>now</latest>
+  </search>
+  <row>
+    <panel>
+      <title>Real sample events</title>
+      <single><search base="events"><query>search sample_kind="live" | stats count AS events</query></search></single>
+    </panel>
+    <panel>
+      <title>Synthetic sample events</title>
+      <single><search base="events"><query>search sample_kind="synthetic" | stats count AS events</query></search></single>
+    </panel>
+  </row>
+  <row>
+    <panel>
+      <title>Synthetic logins without MFA</title>
+      <single>
+        <search base="events"><query><![CDATA[search sample_kind="synthetic" event_source="signin.amazonaws.com" event_name="ConsoleLogin" outcome="success"
+| eval mfa_text=lower(tostring(mfa_used))
+| where mfa_text="false"
+| stats count AS findings]]></query></search>
+      </single>
+    </panel>
+    <panel>
+      <title>Real logins without MFA</title>
+      <single>
+        <search base="events"><query><![CDATA[search sample_kind="live" event_source="signin.amazonaws.com" event_name="ConsoleLogin" outcome="success"
+| eval mfa_text=lower(tostring(mfa_used))
+| where mfa_text="false"
+| stats count AS findings]]></query></search>
+      </single>
+    </panel>
+  </row>
+  <row>
+    <panel>
+      <title>Event outcomes by sample</title>
+      <table><search base="events"><query>stats count AS events BY sample_kind outcome</query></search></table>
+    </panel>
+  </row>
+</dashboard>

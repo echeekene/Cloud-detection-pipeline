@@ -1,0 +1,14 @@
+[
+  {"name":"event_id","type":"string"},
+  {"name":"event_time","type":"timestamp"},
+  {"name":"event_time_iso","type":"string"},
+  {"name":"event_source","type":"string"},
+  {"name":"event_name","type":"string"},
+  {"name":"account_id","type":"string"},
+  {"name":"source_ip","type":"string"},
+  {"name":"principal","type":"string"},
+  {"name":"principal_type","type":"string"},
+  {"name":"outcome","type":"string"},
+  {"name":"error_code","type":"string"},
+  {"name":"mfa_used","type":"boolean"}
+]

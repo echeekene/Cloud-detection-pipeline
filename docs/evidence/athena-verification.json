@@ -1,0 +1,60 @@
+{
+  "checks": {
+    "security_events": {
+      "sample_kind": "live",
+      "expected_rows": 26,
+      "athena_rows": 26,
+      "console_login_without_mfa_findings": 0,
+      "queries": [
+        {
+          "query_id": "ef070857-2fc0-475e-9305-5336b8cac10c",
+          "count": 26,
+          "bytes_scanned": 0
+        },
+        {
+          "query_id": "aaab2c90-0b7d-4ced-8eab-397e39842d13",
+          "count": 0,
+          "bytes_scanned": 0
+        }
+      ]
+    },
+    "synthetic_events": {
+      "sample_kind": "synthetic",
+      "expected_rows": 3,
+      "athena_rows": 3,
+      "console_login_without_mfa_findings": 1,
+      "queries": [
+        {
+          "query_id": "0c8430bf-4b26-437d-baf7-f6c9fbe5175c",
+          "count": 3,
+          "bytes_scanned": 0
+        },
+        {
+          "query_id": "374541a7-78b5-40b4-ad41-950f0a7fdac0",
+          "count": 1,
+          "bytes_scanned": 322
+        }
+      ]
+    }
+  },
+  "workgroup_scan_limit_bytes": 10485760,
+  "query_result_encryption": "SSE_S3",
+  "deployment": {
+    "added": 15,
+    "changed": 0,
+    "destroyed": 0
+  },
+  "post_deployment_terraform_plan": "no changes",
+  "storage_checks": {
+    "public_access_block": "all four settings enabled",
+    "policy_is_public": false,
+    "ownership": "BucketOwnerEnforced",
+    "versioning": "Enabled",
+    "https_only_policy": true,
+    "current_and_noncurrent_expiration_days": 7,
+    "uploaded_parquet_files_hash_verified": 2,
+    "uploaded_parquet_encryption": "AES256",
+    "encrypted_query_result_objects_verified": 4
+  },
+  "cost_note": "Scanned bytes are execution statistics, not a measured AWS bill or a guarantee of zero cost."
+}

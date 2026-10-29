@@ -1,0 +1,8 @@
+index=cloud_detection_lab sourcetype=cloud_detection_json_utc
+| search project="cloud_detection" sample_kind="synthetic"
+| eval event_key=coalesce(account_id,"unknown").":".event_id
+| dedup dataset_id sample_kind event_key
+| search event_source="signin.amazonaws.com" event_name="ConsoleLogin" outcome="success"
+| eval mfa_text=lower(tostring(mfa_used))
+| where mfa_text="false"
+| table sample_kind event_id event_time principal source_ip mfa_used

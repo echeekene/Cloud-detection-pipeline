@@ -1,0 +1,7 @@
+{
+  "Records": [
+    {"eventID": "synthetic-no-mfa", "eventTime": "2026-10-28T12:00:00Z", "eventSource": "signin.amazonaws.com", "eventName": "ConsoleLogin", "awsRegion": "us-east-1", "sourceIPAddress": "192.0.2.10", "userIdentity": {"arn": "arn:aws:iam::111122223333:user/demo"}, "responseElements": {"ConsoleLogin": "Success"}, "additionalEventData": {"MFAUsed": "No"}},
+    {"eventID": "synthetic-with-mfa", "eventTime": "2026-10-28T12:01:00Z", "eventSource": "signin.amazonaws.com", "eventName": "ConsoleLogin", "awsRegion": "us-east-1", "sourceIPAddress": "192.0.2.11", "userIdentity": {"arn": "arn:aws:iam::111122223333:user/demo"}, "responseElements": {"ConsoleLogin": "Success"}, "additionalEventData": {"MFAUsed": "Yes"}},
+    {"eventID": "synthetic-failed", "eventTime": "2026-10-28T12:02:00Z", "eventSource": "signin.amazonaws.com", "eventName": "ConsoleLogin", "awsRegion": "us-east-1", "sourceIPAddress": "192.0.2.12", "userIdentity": {"principalId": "demo"}, "responseElements": {"ConsoleLogin": "Failure"}, "additionalEventData": {"MFAUsed": "No"}}
+  ]
+}
