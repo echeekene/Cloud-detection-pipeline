@@ -1,106 +1,102 @@
 # Cloud Detection Pipeline
 
-A cloud security data pipeline that collects AWS account activity with CloudTrail, transforms logs into partitioned Parquet datasets, and detects IAM policy attachments and successful console logins without MFA using SQL and Splunk.
+A cloud security project that collects AWS account activity with CloudTrail, cleans it into queryable Parquet tables, and detects risky events with SQL in Athena and with Splunk alerts. Everything in AWS is defined in Terraform and checked by automated tests.
 
-This portfolio project combines real AWS audit logs with labeled synthetic detection tests. Terraform defines the AWS infrastructure, Python validates and transforms the events, and Athena and Splunk query the same normalized data.
+I built it to practice the work a cloud security or SOC analyst does: getting logs into a usable shape, writing detections, proving they fire, and investigating what they find.
 
-New CloudTrail files are processed automatically by an [S3-triggered Lambda](docs/AUTOMATION.md) into a separate Athena table. The manual sample path remains available for reproducible checks and local Splunk imports. Scheduled Splunk alerts were verified for a synthetic login and a real controlled IAM policy change, then disabled after evidence was saved.
+## What this is and what it is not
 
-## Tech Stack
+**What this is**
 
-| Component | Tool | Purpose |
-| --- | --- | --- |
-| Audit logging | AWS CloudTrail | Collect management activity across regions |
-| Object storage | Amazon S3 | Store raw logs, Parquet datasets, and query results |
-| Infrastructure | Terraform | Define storage, CloudTrail, Glue, and Athena resources |
-| Processing | Python and PyArrow | Validate JSON events and write typed Parquet files |
-| Automatic processing | AWS Lambda and S3 notifications | Transform newly delivered CloudTrail objects |
-| Failure handling | Amazon SQS and CloudWatch Logs | Retain failed invocations and short-lived runtime logs |
-| Local queries | DuckDB | Check SQL behavior against local datasets |
-| Catalog and queries | AWS Glue and Athena | Describe partitions and query the analytics data |
-| Security monitoring | Splunk Enterprise | Search events, display findings, and test scheduled alerts |
-| Findings API | API Gateway, Lambda, and Athena | Read-only, IAM-signed access to findings and events (written, not yet deployed) |
-| Automated checks | GitHub Actions | Run Python tests and Terraform validation and mock tests |
+- A working pipeline in a real AWS account: CloudTrail logs land in S3, a Lambda function cleans each new file automatically, and Athena queries the result.
+- Two detections, each written three ways (Python, Athena SQL, Splunk SPL) and checked to agree:
+  - successful console logins without MFA
+  - managed policies attached to IAM users
+- A real, controlled test of the IAM detection: a harmless permission change was made, detected, investigated in a [written report](docs/INVESTIGATION_IAM_POLICY.md), and reversed.
+- Infrastructure as code with security defaults: encrypted and versioned buckets, blocked public access, HTTPS only, short data retention, and a per query scan limit.
+- 65 Python tests and 15 Terraform mock tests, run on every push by GitHub Actions.
 
-## Architecture
+**What this is not**
+
+- **Not a production SIEM.** It runs on small samples (34 real events), uses a local Splunk trial, and has no live alert schedule or on call notifications.
+- **Not a security assessment of my account.** Zero real findings only means these two rules did not match in the sampled data.
+- **Not proof against real attackers.** The no MFA finding comes from synthetic test events, and the IAM finding comes from a change I made on purpose. No real compromise was simulated.
+- **Not complete detection coverage.** Two rules cover two behaviors. Many common AWS attack paths are not detected.
+- **Not a least privilege account.** The project resources are tightly scoped, but the identity I deploy with has broader existing permissions.
+
+## How it works
 
 ```mermaid
 flowchart TD
-    A[AWS account activity] --> B[Multi-region CloudTrail]
+    A[AWS account activity] --> B[CloudTrail, all regions]
     B --> C[Private S3 raw log bucket]
-    C -->|Manual sample download| D[Python validation and normalization]
-    C -->|Object-created notification| O[Lambda validation and normalization]
-    O --> P[Automated Parquet output]
-    O --> R[Quarantine and completion receipts]
-    P --> Q[Glue automated_events table]
-    Q --> J[Athena SQL queries]
-    D --> E[Parquet partitioned by UTC day and region]
-    D --> F[Quarantine for rejected records]
-    E --> G[DuckDB SQL checks]
-    E -->|Manual upload through Terraform| H[Private S3 analytics bucket]
-    H --> I[Glue tables and partitions]
-    I --> J
-    E --> K[Labeled JSON export]
-    K -->|Manual upload| L[Local Splunk index]
-    L --> M[Dashboard and scheduled test alert]
+    C -->|New file notification| D[Lambda: validate and normalize]
+    C -->|Manual sample| E[Python on my machine]
+    D --> F[Parquet by day and region]
+    E --> F
+    D --> G[Quarantine for bad records]
+    E --> G
+    F --> H[Glue catalog]
+    H --> I[Athena SQL detections]
+    E --> J[Labeled JSON export]
+    J --> K[Local Splunk dashboard and alerts]
+    I --> L[Findings API, written, not deployed]
 ```
 
-Raw CloudTrail files remain separate from normalized analytics data. Python applies a consistent schema before writing Parquet. Real and synthetic samples use separate Athena tables and explicit labels in Splunk, so a test finding can be distinguished from observed account activity.
+1. **Collect.** A dedicated CloudTrail trail writes management events from every region to a private S3 bucket.
+2. **Clean.** Python validates each event, sets aside bad or conflicting records, removes exact duplicates, converts times to UTC, and writes Parquet files grouped by day and region. New files are processed automatically by an S3 triggered Lambda; failures go to an SQS queue for review.
+3. **Query.** Glue describes the Parquet files so Athena can run SQL over them. Real and synthetic data live in separate tables so a test finding is never mistaken for real activity.
+4. **Detect and investigate.** The same rules run in Athena and in a local Splunk dashboard. Comparing both counts confirms they read the data the same way.
 
-Athena supports SQL analysis over the stored datasets. Splunk provides the dashboard and alert workflow. Comparing their counts and findings checks that both paths interpret the sample consistently.
+More detail: [data model](docs/DATA_MODEL.md), [automation](docs/AUTOMATION.md), [Athena](docs/ATHENA.md), [Splunk](docs/SPLUNK.md), [design decisions](docs/DECISIONS.md).
 
-## Data Model and Processing
+## Tech stack
 
-Each normalized row represents a CloudTrail event. Fields include the event ID, time, account, principal, source IP, region, service, action, outcome, error code, and MFA value. The current model is a normalized event table partitioned by UTC day and region.
+| Area | Tools |
+| --- | --- |
+| Logging and storage | AWS CloudTrail, Amazon S3 |
+| Infrastructure | Terraform (foundation, analytics, scenario, automation, and API modules) |
+| Processing | Python, PyArrow, AWS Lambda, Amazon SQS, CloudWatch Logs |
+| Querying | AWS Glue, Amazon Athena, DuckDB for local checks |
+| Security monitoring | Splunk Enterprise (local) |
+| API | API Gateway HTTP API with IAM authorization, Lambda, Athena |
+| Testing | Python unittest, Terraform mock tests, GitHub Actions |
 
-The processor:
+## Detections
 
-- Reads plain JSON and compressed CloudTrail files with input size limits.
-- Validates required fields and keeps rejected records in quarantine.
-- Removes identical duplicates within a dataset using account ID and event ID. Conflicting copies are quarantined.
-- Writes Parquet and a manifest with file hashes and a completion marker.
-- Checks completed output before reusing an identical run. Changed input requires a new output location.
-
-Timestamps use UTC. Parquet stores millisecond timestamps, while a separate text field preserves supported submillisecond precision. Missing MFA information remains unknown and does not count as evidence that MFA was absent.
-
-See the [data model and processing guide](docs/DATA_MODEL.md) for the schema, limits, and replay behavior.
-
-## Detection
-
-The implemented rule identifies a `ConsoleLogin` event from `signin.amazonaws.com` when the login succeeded and MFA is explicitly recorded as false.
-
-| Test event | Outcome | MFA | Expected finding |
+| Rule | Logic | MITRE ATT&CK | Tested with |
 | --- | --- | --- | --- |
-| Successful login without MFA | Success | False | Yes |
-| Successful login with MFA | Success | True | No |
-| Failed login | Failure | False | No |
+| Console login without MFA | Successful `ConsoleLogin` where CloudTrail explicitly records no MFA | [T1078.004](https://attack.mitre.org/techniques/T1078/004/) | Three synthetic events: success without MFA, success with MFA, failed login. Only the first should match, and only it does. |
+| IAM policy attached to a user | Successful `AttachUserPolicy` from `iam.amazonaws.com` | [T1098.003](https://attack.mitre.org/techniques/T1098/003/) | A real change: a test user with no password or keys received a policy that can only read one bucket's location. Detected in Python, Athena and Splunk, then removed. |
 
-The rule is implemented in [Python](cloud_detection/pipeline.py), [Athena SQL](sql/detections/console_login_without_mfa.sql), and [Splunk SPL](splunk/searches/synthetic_no_mfa_login.spl). The synthetic sample tests the rule without disabling MFA on real account access.
+A missing MFA value is treated as unknown, not as "no MFA," so the rule does not raise false alarms on events that never record MFA. The policy attachment rule flags the event for investigation; it does not decide whether the permissions are excessive.
 
-The Splunk test alert used an All time search and a temporary one-minute schedule. It added findings to Triggered Alerts without outbound notifications. The schedule fired and was disabled after verification. Its [settings and result](splunk/alerts/synthetic_no_mfa_test.md) are documented separately.
+Rule sources: [Python](cloud_detection/pipeline.py), [SQL](sql/detections/), [Splunk SPL](splunk/searches/).
 
-A second rule flags successful `AttachUserPolicy` events from `iam.amazonaws.com`. It was checked against a real, reversible IAM change: a dedicated user received only permission to read the project bucket's location, with no password or access keys. The event passed through CloudTrail storage, Python, Parquet, Athena, and Splunk, where a scheduled alert fired. The permission, policy, and user were removed. This behavior maps to [MITRE ATT&CK T1098.003](https://attack.mitre.org/techniques/T1098/003/), but the exercise demonstrates a benign permission change rather than an actual compromise.
-
-## Results and Dashboard
-
-The initial sample contained 26 records from three real CloudTrail files, including a harmless `GetBucketVersioning` verification action. Eight selected IAM scenario records expanded the dataset to 34 real events, all accepted without rejects.
+## Results
 
 | Check | Real sample | Synthetic sample |
 | --- | --- | --- |
 | Events read by Athena | 34 | 3 |
 | Events shown in Splunk | 34 | 3 |
-| Successful logins without MFA | 0 | 1 |
-| Managed IAM policy attachments | 1 | 0 |
+| Console logins without MFA | 0 | 1 |
+| IAM policy attachments | 1 | 0 |
 
-![Splunk dashboard with real and synthetic event counts and no-MFA findings](docs/images/splunk-dashboard.jpg)
+![Splunk dashboard with real and synthetic event counts and findings](docs/images/splunk-dashboard.jpg)
 
-The no-MFA finding is synthetic; the IAM finding comes from the controlled AWS scenario. Zero real no-MFA findings is not a security assessment of the account. The [investigation report](docs/INVESTIGATION_IAM_POLICY.md) separates the observed behavior from the test's limitations.
+Athena and Splunk agree on every count. Scheduled Splunk alerts fired for both the synthetic login and the real IAM change, then were disabled after the evidence was saved. The automated Lambda path separately processed a new 75 record CloudTrail file with no rejects, and Athena found the verification event exactly once.
 
-[Validation notes](docs/VALIDATION.md) and [aggregate evidence reports](docs/evidence/) record the checks. Raw account logs, credentials, Terraform state, and screenshots containing account details are excluded from the repository.
+Checks are recorded in [validation notes](docs/VALIDATION.md) and [evidence reports](docs/evidence/). Raw logs, credentials, Terraform state, and screenshots with account details are kept out of the repository.
 
-## Running the Local Example
+## Findings API
 
-Python 3.11 or newer is required. The synthetic example runs without AWS credentials.
+A small read only API lets an authorized caller list detections, pull findings for a date range, or search events by user, IP address or action. Every route requires signed IAM credentials and is throttled. User input never becomes part of the SQL: values are checked against strict patterns and passed to Athena as query parameters, and tests send common injection strings to every filter.
+
+**Status:** code, Terraform, an [OpenAPI specification](docs/openapi.yaml) and tests are written. It has not been deployed yet. See [API notes](docs/API.md).
+
+## Running it locally
+
+Python 3.11 or newer. The local example uses synthetic data and needs no AWS account.
 
 ```powershell
 python -m venv .venv
@@ -110,75 +106,74 @@ python -m venv .venv
 .\.venv\Scripts\python.exe -m unittest discover -s tests -v
 ```
 
-The detection command returns one synthetic finding. The ETL command creates a Parquet dataset, quarantine output, and manifest. Use a fresh output path for changed input.
-
-See [AWS deployment](docs/DEPLOYMENT.md), [Athena setup](docs/ATHENA.md), and [Splunk setup](docs/SPLUNK.md) for the remaining steps. AWS deployment creates billable resources.
+The first command reports one synthetic finding. The second builds a Parquet dataset with a quarantine folder and a manifest. Deploying to AWS creates billable resources; see [deployment](docs/DEPLOYMENT.md).
 
 ## Testing
 
-The suite contains **65 Python tests** and **15 Terraform mock tests**; the three newest Terraform tests cover the findings API and still need their first run. Coverage includes invalid events, UTC boundaries, missing MFA values, duplicate conflicts, bounded input handling, output integrity, replay behavior, SQL agreement, labeled Splunk exports, the narrow IAM scenario, Lambda processing and packaging, and findings API validation, injection rejection, and timeouts. Live checks verified native imports, an identical-event replay, automatic processing of a new log file, Athena read-back, and delivery of a controlled failure to SQS.
+- **65 Python tests** cover bad events, UTC boundaries, missing MFA values, duplicate conflicts, size limits, output integrity, reruns, SQL agreement, Splunk exports, Lambda processing and packaging, and API validation, injection rejection and timeouts.
+- **15 Terraform mock tests** check settings such as encryption, retention, scoped permissions, and that every API route requires IAM authorization. They do not create resources.
+- **Live checks** in AWS confirmed log delivery, automatic processing of a new file, safe reprocessing of the same file, Athena read back, and delivery of a deliberate failure to SQS.
 
-GitHub Actions runs the Python suite, synthetic example, ETL example, Terraform formatting, validation, and mock tests. Hosted [Python tests](https://github.com/echeekene/Cloud-detection-pipeline/actions/runs/40805508123) and [Terraform checks](https://github.com/echeekene/Cloud-detection-pipeline/actions/runs/40805508126) passed. Mock tests do not deploy resources or prove live AWS behavior; live checks are documented separately.
+GitHub Actions runs the Python suite, both examples, and Terraform format, validate and test on every push.
 
-## Security and Cost Controls
+## Security and cost controls
 
-- Raw and analytics buckets use encryption, versioning, public-access blocking, and HTTPS-only policies.
-- CloudTrail records multi-region management activity and generates digest files. Digest-chain validation is still pending.
-- Raw data has a 30-day lifecycle; analytics data and results have a seven-day lifecycle.
-- The Athena workgroup enforces encrypted results and a 10 MiB scan limit per query.
-- Real account access keeps MFA enabled. Detection tests use labeled synthetic events.
-- Account-specific variables, state, generated datasets, and raw logs remain outside Git.
+- Buckets are encrypted, versioned, private, and refuse non HTTPS requests.
+- Raw logs expire after 30 days; analytics data and query results after 7 days.
+- Athena encrypts results and stops any query that would scan more than 10 MiB.
+- Each Lambda role can touch only its own prefixes. The API role is read only.
+- Real account access keeps MFA on. The no MFA rule is tested with synthetic events instead.
+- Spending ceiling for the whole build is **$20**. The billing console showed an estimated $0.00 with the bill still pending. Budget alerts warn but do not stop charges, so the real control is tearing the lab down.
 
-The build has a **$20 total spending ceiling**, aiming lower. Existing $5 monthly budget alerts provide warnings but do not stop charges. The current billing console showed an estimated **$0.00**, with the bill pending; this is not a finalized project total. AWS logging and storage remain active until teardown is tested and completed.
+## Mistakes and what I learned
 
-## Tradeoffs
+**Splunk read UTC timestamps as local time.** My first imports recognized the timestamps but applied my computer's time zone, which shifted events and hid real ones from the dashboard. An explicit GMT source type fixed new imports. The 29 badly timed records are still in the lab index, so the searches select only the corrected source type. *Lesson:* parsing a time and interpreting its time zone are separate checks.
 
-- **Separate manual and automatic paths:** fixed samples make results reproducible, while Lambda processes newly delivered files into a different table. Splunk imports remain manual, and the cloud processing path does not schedule detections.
-- **Complete dataset snapshots:** manifests and file hashes make reruns verifiable. This approach keeps a run in memory and does not solve deduplication across different snapshots.
-- **Parquet for analysis:** typed, partitioned files support SQL checks in DuckDB and Athena. Catalog and upload steps add work compared with reading raw JSON directly.
-- **Local Splunk:** the existing installation supports dashboard and alert testing without hosting another cloud server. Scheduled searches depend on the available license; the existing Enterprise trial is time limited.
-- **Synthetic no-MFA tests:** deterministic examples test success, failure, and MFA handling without weakening real access. They do not demonstrate an actual attack or incident response.
+**Extracting JSON twice broke my counts.** Splunk had already extracted the JSON fields, and adding `spath` again created duplicate values. I removed the extra extraction.
 
-See [design decisions](docs/DECISIONS.md) for further context.
+**CI failed on its first run.** The Terraform lock file only had the Windows provider hash, and GitHub Actions runs on Linux. Both hashes are now recorded.
 
-## Known Limitations
+**Deployment permissions took several tries.** The deployment policy outgrew the inline policy size limit and had to become a managed policy. My existing sign in session did not pick up the new permissions until I refreshed it. Terraform also needed one more read permission (`GetFunctionCodeSigningConfig`) partway through creating the Lambda, so I had to reconcile Terraform's record with the function that already existed instead of creating a duplicate.
 
-- Automatic transformation is enabled, but there is no continuous Splunk forwarding or active security alert schedule.
-- Lambda publishes stable output keys per source object and version. Different files can still contain repeated events, and publication is not atomic across multiple partitions. The function uses shared account concurrency because the account quota cannot support a separate reservation.
-- The expanded real sample contains only 34 records. Detection coverage includes console logins without MFA and successful managed-policy attachments to IAM users. An attachment finding requires investigation; the rule does not determine whether the added permissions are excessive.
-- The first Splunk imports had incorrect time-zone interpretation. Those records remain stored in the lab index; searches explicitly select the corrected UTC source type.
-- Athena results and the dashboard reflect selected snapshots rather than all current account activity.
-- The deployment identity has broader existing IAM permissions. Project-scoped analytics permissions do not make the whole account least privilege.
-- Digest-chain validation, measured costs, and tested AWS teardown remain unfinished.
+**My account could not reserve Lambda capacity.** The account quota was too small to cap the function at one execution, so I made reprocessing safe instead: output names are stable and every rerun checks file hashes before reusing results.
 
-## Issues Encountered and Improvements
+**I started over once.** My first version scaffolded VPC Flow Logs and GuardDuty alongside CloudTrail. I replaced it with a smaller pipeline built and tested one piece at a time, and kept the original history in Git.
 
-**Time-zone interpretation:** Splunk initially recognized the timestamp text but applied the computer time zone. An explicit GMT parser corrected the new import. Future ingestion checks should compare the parsed instant with the source value before indexing.
+## What I would do differently
 
-**Duplicate JSON extraction:** applying `spath` after JSON fields were already extracted produced duplicate values and broke event-key calculations. The searches now use the fields extracted by the source type.
+- **Start smaller and finish one path end to end first,** instead of scaffolding many AWS services up front.
+- **Set up CI on day one,** so platform issues like the lock file hash show up before deployment.
+- **Design for duplicates across files from the start.** Each run is safe to repeat, but the same event in two different log files can still be counted twice.
+- **Forward events to Splunk automatically** with the HTTP Event Collector instead of manual uploads, so detections run on live data.
+- **Use a dedicated, least privilege deployment identity** from the beginning rather than tightening permissions after the fact.
+- **Test teardown early,** so cleanup is proven before the project grows instead of being one of the last steps.
+- **Add a time zone check at ingestion** that compares the parsed time with the original value before indexing.
 
-**Cross-platform Terraform checks:** the first hosted workflow failed because the lock file lacked the Linux package hash. Both modules now record official Windows and Linux provider hashes, and the hosted checks pass.
+## Known limitations
 
-## Repository Layout
+- Detections run on chosen snapshots, not all current account activity, and Splunk imports are manual.
+- Events repeated across different log files can be counted more than once, and Lambda output is not written atomically across partitions.
+- CloudTrail digest validation, a measured final cost, and a tested teardown are not finished yet.
+
+## Repository layout
 
 ```text
-cloud_detection/    Normalization, detection, Parquet processing, and JSON export
+cloud_detection/    Normalization, detections, Parquet processing, Lambda and API handlers
 examples/           Synthetic CloudTrail sample
 tests/              Python and SQL behavior tests
-infra/foundation/   CloudTrail and raw S3 storage
-infra/analytics/    Analytics storage, sample uploads, Glue, and Athena
-infra/scenario/     Temporary IAM test user, narrow policy, and attachment
-infra/automation/   Lambda, failure queue, S3 trigger, and automated table
-infra/access/       Analytics permission template
-scripts/            Snapshot preparation and Athena verification helpers
-sql/                Detection query and reference table definition
-splunk/             Searches, dashboard XML, and test alert settings
-docs/               Setup, data model, decisions, limitations, and evidence
+infra/foundation/   CloudTrail trail and raw log bucket
+infra/analytics/    Analytics bucket, Glue tables, Athena workgroup
+infra/scenario/     Temporary IAM test user and policy for the controlled test
+infra/automation/   S3 triggered Lambda, failure queue, automated table
+infra/api/          Findings API: API Gateway, Lambda, read only role
+infra/access/       Reviewed permission templates for deployment
+scripts/            Packaging, snapshot preparation, Athena checks, API client
+sql/                Detection queries and table definition
+splunk/             Searches, dashboard XML, alert settings
+docs/               Setup, decisions, investigation, API spec, evidence
 .github/workflows/  Python and Terraform checks
 ```
 
-## Planned Extensions
+## What is next
 
-The controlled IAM scenario has been executed and reversed, and automatic log processing is verified. The [investigation report](docs/INVESTIGATION_IAM_POLICY.md) and [automation notes](docs/AUTOMATION.md) record the results and limitations. A protected read-only [findings API](docs/API.md) is written and tested but not yet deployed. Remaining work includes deploying it, digest validation, and tested cleanup of the main AWS infrastructure. AI summaries and a randomized simulator are optional stretch additions.
-
-The [roadmap](docs/ROADMAP.md) separates these planned extensions from the implemented system.
+Deploy and test the findings API, validate the CloudTrail digest chain, measure the final cost, and tear down the AWS resources with a tested procedure. AI summaries of findings and a randomized attack simulator are optional additions. Progress is tracked in the [roadmap](docs/ROADMAP.md).
