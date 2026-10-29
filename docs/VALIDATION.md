@@ -20,7 +20,7 @@ Mock test runs:
 - `reject_short_retention`: zero-day retention rejected.
 - `explicit_teardown_opt_in`: deletion capability enabled only by explicit input.
 
-These tests do not contact AWS. They validate the declared configuration, not the behavior of deployed services. Live checks are recorded separately below. CI workflow source is present; no hosted GitHub run has occurred.
+These tests do not contact AWS. They validate the declared configuration, not the behavior of deployed services. Live checks are recorded separately below. Hosted [Python tests](https://github.com/echeekene/Cloud-detection-pipeline/actions/runs/40805347850) and [Terraform checks](https://github.com/echeekene/Cloud-detection-pipeline/actions/runs/40805347584) both passed. The first Terraform run exposed a Windows-only package hash in the lock file; adding the official Linux package hash resolved validation on the GitHub runner. Both platforms are now recorded in each module's lock file.
 
 The first local Python milestone was also verified: 7 unit tests passed, and the sample run produced 3 normalized events and 1 finding. All sample events are synthetic.
 

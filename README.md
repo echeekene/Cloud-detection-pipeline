@@ -61,7 +61,7 @@ flowchart LR
 
 **Why start this way?** It lets us follow each step: look at the logs, test the Python code, upload a small result, and query it in AWS. We can understand that path before adding automatic processing.
 
-The next priorities are publishing the existing work, one controlled AWS security scenario, automatic log processing, and a protected findings API. AI and a randomized simulator are optional later additions. The [roadmap](docs/ROADMAP.md) tracks them.
+The next priorities are one controlled AWS security scenario, automatic log processing, and a protected findings API. AI and a randomized simulator are optional later additions. The [roadmap](docs/ROADMAP.md) tracks them.
 
 ## Running it locally
 
@@ -101,7 +101,7 @@ We checked three real files delivered by CloudTrail. They contained **26 records
 
 Athena read back **26 real rows** and **3 synthetic rows**. The no-MFA query found **one event in the made-up sample** and **none in the real sample**, matching our local results. That is a working SQL detection check; a scheduled synthetic Splunk alert also fired and was disabled after verification.
 
-All **38 Python tests** pass locally. They check things like missing fields, repeated events, bad files, date boundaries, rerunning the same input, whether the Python and SQL rules agree, and preparing JSON files for Splunk. The four foundation and three analytics Terraform mock tests also passed. GitHub Actions is set up, but we have not checked a hosted run yet.
+All **38 Python tests** pass locally. They check things like missing fields, repeated events, bad files, date boundaries, rerunning the same input, whether the Python and SQL rules agree, and preparing JSON files for Splunk. The four foundation and three analytics Terraform mock tests also passed. Both the [Python tests](https://github.com/echeekene/Cloud-detection-pipeline/actions/runs/40805347850) and [Terraform checks](https://github.com/echeekene/Cloud-detection-pipeline/actions/runs/40805347584) passed on GitHub Actions.
 
 Splunk's private dashboard shows the same counts and findings as Athena:
 

@@ -29,7 +29,7 @@ We are building this to learn cloud security and data processing. This list help
 
 We are using the existing AWS account in US East (N. Virginia). Our maximum is **$20 for the whole build**, including work across billing months, and we want to spend less. The existing $5 monthly budget alerts give us an earlier warning, but they do not stop spending automatically.
 
-We still need to confirm which GitHub repository we will publish to. Splunk Enterprise is already running locally, and we will use a separate project index there.
+The build is published at [echeekene/Cloud-detection-pipeline](https://github.com/echeekene/Cloud-detection-pipeline), with passing hosted Python and Terraform checks. Splunk Enterprise runs locally in a separate project index.
 
 ## Documentation
 
@@ -37,7 +37,7 @@ The Motorsport sample is a reference for explaining the architecture, choices, l
 
 ## Next piece to review together
 
-1. Prepare and publish the existing repository, then verify one hosted GitHub Actions run.
+1. Completed: publish the existing repository and verify hosted Python and Terraform workflows.
 2. Run one controlled AWS security scenario with detection, investigation, and reversal using a dedicated test identity.
 3. Automate processing of new CloudTrail logs with an S3-triggered Lambda, including failure and replay handling.
 4. Write the investigation report, map the activity to a relevant MITRE ATT&CK technique, and update the architecture diagram.
