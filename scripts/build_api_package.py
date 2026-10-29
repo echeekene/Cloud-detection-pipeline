@@ -7,7 +7,7 @@ import json
 from pathlib import Path
 from zipfile import ZipFile, ZipInfo, ZIP_DEFLATED
 
-FILES = ("__init__.py", "api_handler.py")
+FILES = ("__init__.py", "api_handler.py", "athena.py", "detections.py")
 
 
 def build(output):

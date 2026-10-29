@@ -11,7 +11,9 @@ import ipaddress
 import json
 import os
 import re
-import time
+
+from .athena import QueryError as RequestError, literal as _literal, run_query
+from .detections import RULES, catalog
 
 DATABASE = "cloud_detection"
 DATASETS = {"automated": "automated_events", "live": "security_events", "synthetic": "synthetic_events"}
@@ -21,43 +23,13 @@ DEFAULT_LIMIT = 50
 EARLIEST = date(2020, 1, 1)
 COLUMNS = "event_id, event_time_iso, event_source, event_name, account_id, principal, source_ip, outcome, error_code, mfa_used, region, event_date"
 
-DETECTIONS = {
-    "console_login_without_mfa": {
-        "name": "Console login without MFA",
-        "description": "Successful AWS console login where CloudTrail explicitly records that MFA was not used.",
-        "mitre_attack": {"id": "T1078.004", "name": "Valid Accounts: Cloud Accounts"},
-        "severity": "medium",
-        "condition": "event_source = 'signin.amazonaws.com' AND event_name = 'ConsoleLogin' AND outcome = 'success' AND mfa_used = FALSE",
-        "sql": "sql/detections/console_login_without_mfa.sql",
-    },
-    "iam_managed_policy_attached": {
-        "name": "Managed policy attached to IAM user",
-        "description": "Successful AttachUserPolicy call. Requires investigation; the rule does not judge whether the permissions are excessive.",
-        "mitre_attack": {"id": "T1098.003", "name": "Account Manipulation: Additional Cloud Roles"},
-        "severity": "medium",
-        "condition": "event_source = 'iam.amazonaws.com' AND event_name = 'AttachUserPolicy' AND outcome = 'success'",
-        "sql": "sql/detections/iam_managed_policy_attached.sql",
-    },
-}
+DETECTIONS = RULES
 
 REGION = re.compile(r"[a-z]{2}(?:-[a-z0-9]+)+-\d+")
 PRINCIPAL = re.compile(r"[A-Za-z0-9+=,.@_:/-]{1,256}")
 EVENT_NAME = re.compile(r"[A-Za-z0-9]{1,128}")
 DETECTION_ID = re.compile(r"[a-z_]{1,64}")
 OUTCOMES = {"success", "failure", "unknown"}
-
-
-class RequestError(Exception):
-    def __init__(self, status, message):
-        super().__init__(message)
-        self.status = status
-        self.message = message
-
-
-def _literal(value):
-    """Athena execution parameters are SQL literals. Values are pattern-checked first and
-    can never contain a quote; doubling quotes is a second, independent safeguard."""
-    return "'" + value.replace("'", "''") + "'"
 
 
 def _date(params, name):
@@ -153,44 +125,6 @@ def build_events_query(params, today):
     return sql, parameters, window, limit
 
 
-def _convert(column, value):
-    if value is None:
-        return None
-    if column == "mfa_used":
-        return {"true": True, "false": False}.get(value)
-    return value
-
-
-def run_query(athena, sql, parameters, limit, config, clock=time.monotonic, sleep=time.sleep):
-    """Run one query within a deadline. Returns (rows, truncated, execution_id)."""
-    started = athena.start_query_execution(
-        QueryString=sql, ExecutionParameters=parameters, WorkGroup=config["workgroup"],
-        QueryExecutionContext={"Database": DATABASE})
-    execution_id = started["QueryExecutionId"]
-    deadline = clock() + config["timeout_seconds"]
-    delay = 0.25
-    while True:
-        status = athena.get_query_execution(QueryExecutionId=execution_id)["QueryExecution"]["Status"]
-        state = status["State"]
-        if state == "SUCCEEDED":
-            break
-        if state in ("FAILED", "CANCELLED"):
-            print(json.dumps({"query_execution_id": execution_id, "state": state,
-                              "reason": status.get("StateChangeReason", "")[:500]}))
-            raise RequestError(502, "query did not complete")
-        if clock() + delay > deadline:
-            athena.stop_query_execution(QueryExecutionId=execution_id)
-            raise RequestError(504, "query exceeded the time limit; narrow the date range")
-        sleep(delay)
-        delay = min(delay * 2, 2.0)
-    result = athena.get_query_results(QueryExecutionId=execution_id, MaxResults=limit + 2)
-    rows = result["ResultSet"]["Rows"]
-    header = [cell.get("VarCharValue") for cell in rows[0]["Data"]] if rows else []
-    items = [{column: _convert(column, cell.get("VarCharValue")) for column, cell in zip(header, row["Data"])}
-             for row in rows[1:]]
-    return items[:limit], len(items) > limit, execution_id
-
-
 def _response(status, body):
     return {"statusCode": status, "headers": {"content-type": "application/json", "cache-control": "no-store"},
             "body": json.dumps(body, separators=(",", ":"))}
@@ -201,8 +135,7 @@ def route(event, athena, config, today):
     params = event.get("queryStringParameters") or {}
     if route_key == "GET /detections":
         _allowed(params, set())
-        return _response(200, {"detections": [
-            {"id": key, **{k: v for k, v in rule.items() if k != "condition"}} for key, rule in DETECTIONS.items()]})
+        return _response(200, {"detections": catalog()})
     if route_key == "GET /findings":
         sql, parameters, window, limit = build_findings_query(params, today)
     elif route_key == "GET /events":

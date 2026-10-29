@@ -46,6 +46,6 @@ class ApiPackageTests(unittest.TestCase):
             first, second = build_api(root/'a.zip'), build_api(root/'b.zip')
             self.assertEqual(first['sha256'], second['sha256'])
             with ZipFile(root/'a.zip') as archive:
-                self.assertEqual(sorted(archive.namelist()), ['cloud_detection/__init__.py', 'cloud_detection/api_handler.py'])
+                self.assertEqual(sorted(archive.namelist()), ['cloud_detection/__init__.py', 'cloud_detection/api_handler.py', 'cloud_detection/athena.py', 'cloud_detection/detections.py'])
             with self.assertRaisesRegex(ValueError, 'existing'):
                 build_api(root/'a.zip')

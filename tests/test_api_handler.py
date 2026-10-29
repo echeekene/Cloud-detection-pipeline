@@ -58,6 +58,7 @@ class QueryBuildingTests(unittest.TestCase):
         self.assertIn("FROM automated_events", sql)
         self.assertIn("AttachUserPolicy", sql)
         self.assertNotIn("ConsoleLogin", sql)
+        self.assertNotIn("CreateAccessKey", sql)
         self.assertEqual(len(parameters), 3)
 
     def test_event_filters_are_parameterized(self):
@@ -136,6 +137,7 @@ class RoutingTests(unittest.TestCase):
         self.assertEqual({d["id"] for d in body["detections"]}, set(DETECTIONS))
         self.assertTrue(all(d["mitre_attack"]["id"].startswith("T") for d in body["detections"]))
         self.assertNotIn("condition", body["detections"][0])
+        self.assertNotIn("match", body["detections"][0])
         self.assertEqual(response["headers"]["cache-control"], "no-store")
 
     def test_findings_route_returns_window_and_items(self):

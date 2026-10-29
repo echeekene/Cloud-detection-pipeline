@@ -14,7 +14,7 @@ I built it to practice the work a cloud security or SOC analyst does: getting lo
   - managed policies attached to IAM users
 - A real, controlled test of the IAM detection: a harmless permission change was made, detected, investigated in a [written report](docs/INVESTIGATION_IAM_POLICY.md), and reversed.
 - Infrastructure as code with security defaults: encrypted and versioned buckets, blocked public access, HTTPS only, short data retention, and a per query scan limit.
-- 65 Python tests and 15 Terraform mock tests, run on every push by GitHub Actions.
+- 69 Python tests and 15 Terraform mock tests, run on every push by GitHub Actions.
 
 **What this is not**
 
@@ -40,7 +40,7 @@ flowchart TD
     H --> I[Athena SQL detections]
     E --> J[Labeled JSON export]
     J --> K[Local Splunk dashboard and alerts]
-    I --> L[Findings API, partially deployed]
+    I --> L[Findings API]
 ```
 
 1. **Collect.** A dedicated CloudTrail trail writes management events from every region to a private S3 bucket.
@@ -59,7 +59,7 @@ More detail: [data model](docs/DATA_MODEL.md), [automation](docs/AUTOMATION.md),
 | Processing | Python, PyArrow, AWS Lambda, Amazon SQS, CloudWatch Logs |
 | Querying | AWS Glue, Amazon Athena, DuckDB for local checks |
 | Security monitoring | Splunk Enterprise (local) |
-| API | API Gateway HTTP API with IAM authorization, Lambda, Athena (partially deployed) |
+| API | API Gateway HTTP API with IAM authorization, Lambda, Athena |
 | Testing | Python unittest, Terraform mock tests, GitHub Actions |
 
 ## Detections
@@ -72,6 +72,8 @@ More detail: [data model](docs/DATA_MODEL.md), [automation](docs/AUTOMATION.md),
 A missing MFA value is treated as unknown, not as "no MFA," so the rule does not raise false alarms on events that never record MFA. The policy attachment rule flags the event for investigation; it does not decide whether the permissions are excessive.
 
 Rule sources: [Python](cloud_detection/pipeline.py), [SQL](sql/detections/), [Splunk SPL](splunk/searches/).
+
+Four more rules are defined in [one shared module](cloud_detection/detections.py) used by the API: root account console login, IAM access key created, CloudTrail logging stopped or trail deleted, and S3 public access block removed. Each has tests that check its SQL and Python logic agree, plus a [triage runbook](docs/runbooks/). They are not yet tested against real events or running on a schedule.
 
 ## Results
 
@@ -92,7 +94,7 @@ Checks are recorded in [validation notes](docs/VALIDATION.md) and [evidence repo
 
 A small read only API lets an authorized caller list detections, pull findings for a date range, or search events by user, IP address or action. Every route requires signed IAM credentials and is throttled. User input never becomes part of the SQL: values are checked against strict patterns and passed to Athena as query parameters, and tests send common injection strings to every filter.
 
-**Status:** code, Terraform, an [OpenAPI specification](docs/openapi.yaml) and tests are written and passing. Deployment created 11 of 12 resources; the stage that exposes the endpoint was blocked by a tagging permission, so the API is not reachable yet. See [API notes](docs/API.md) for where it stopped and how to resume.
+**Status:** deployed and verified. Unsigned requests get 403 on every route; signed requests from an authorized reader get 200, and a live query returned a real finding from the automated table. See [API notes](docs/API.md).
 
 ## Running it locally
 
@@ -110,7 +112,7 @@ The first command reports one synthetic finding. The second builds a Parquet dat
 
 ## Testing
 
-- **65 Python tests** cover bad events, UTC boundaries, missing MFA values, duplicate conflicts, size limits, output integrity, reruns, SQL agreement, Splunk exports, Lambda processing and packaging, and API validation, injection rejection and timeouts.
+- **69 Python tests** cover bad events, UTC boundaries, missing MFA values, duplicate conflicts, size limits, output integrity, reruns, SQL agreement, Splunk exports, Lambda processing and packaging, and API validation, injection rejection and timeouts.
 - **15 Terraform mock tests** check settings such as encryption, retention, scoped permissions, and that every API route requires IAM authorization. They do not create resources.
 - **Live checks** in AWS confirmed log delivery, automatic processing of a new file, safe reprocessing of the same file, Athena read back, and delivery of a deliberate failure to SQS.
 
@@ -137,7 +139,7 @@ GitHub Actions runs the Python suite, both examples, and Terraform format, valid
 
 **My account could not reserve Lambda capacity.** The account quota was too small to cap the function at one execution, so I made reprocessing safe instead: output names are stable and every rerun checks file hashes before reusing results.
 
-**The API deployment stopped one resource short.** Access Analyzer flagged `apigateway:TagResource` as an invalid action, so I removed it from the deploy policy. API Gateway then required exactly that action to create the tagged stage. I added it back, and the IAM simulator allowed it, but the real call was still denied, so I stopped with 11 of 12 resources created and documented how to resume. *Lesson:* a policy validator and the service can disagree, so test the real call before trusting either.
+**The API deployment stalled on one permission.** Access Analyzer flagged `apigateway:TagResource` as an invalid action, so I removed it from the deploy policy. API Gateway then required exactly that action to create the tagged stage. I added it back and the IAM simulator allowed it, but real calls were still denied for several minutes, so I stopped with 11 of 12 resources and documented how to resume. The same plan applied cleanly later. *Lesson:* a policy validator and the service can disagree, and IAM changes take time to propagate, so test the real call and allow for delay.
 
 **I started over once.** My first version scaffolded VPC Flow Logs and GuardDuty alongside CloudTrail. I replaced it with a smaller pipeline built and tested one piece at a time, and kept the original history in Git.
 
@@ -178,4 +180,4 @@ docs/               Setup, decisions, investigation, API spec, evidence
 
 ## What is next
 
-Finish deploying the findings API (one stage remains), validate the CloudTrail digest chain, measure the final cost, and tear down the AWS resources with a tested procedure. AI summaries of findings and a randomized attack simulator are optional additions. Progress is tracked in the [roadmap](docs/ROADMAP.md).
+Add scheduled detections with Slack alerts, pipeline health alarms, remote Terraform state, and CI/CD with a dedicated deploy role, then validate the CloudTrail digest chain, measure the final cost, and tear down the AWS resources with a tested procedure. AI summaries of findings and a randomized attack simulator are optional additions. Progress is tracked in the [roadmap](docs/ROADMAP.md).
