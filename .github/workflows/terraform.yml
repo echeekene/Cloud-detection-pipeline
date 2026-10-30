@@ -7,7 +7,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        directory: [state, foundation, analytics, scenario, automation, api]
+        directory: [state, foundation, analytics, scenario, automation, api, alerts]
     defaults:
       run:
         working-directory: infra/${{ matrix.directory }}

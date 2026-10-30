@@ -49,3 +49,10 @@ class ApiPackageTests(unittest.TestCase):
                 self.assertEqual(sorted(archive.namelist()), ['cloud_detection/__init__.py', 'cloud_detection/api_handler.py', 'cloud_detection/athena.py', 'cloud_detection/detections.py'])
             with self.assertRaisesRegex(ValueError, 'existing'):
                 build_api(root/'a.zip')
+
+    def test_alert_package_contains_only_the_runner(self):
+        from scripts.build_api_package import build as build_api
+        with tempfile.TemporaryDirectory() as temp:
+            build_api(Path(temp)/'alerts.zip', 'alerts')
+            with ZipFile(Path(temp)/'alerts.zip') as archive:
+                self.assertEqual(sorted(archive.namelist()), ['cloud_detection/__init__.py', 'cloud_detection/alerting.py', 'cloud_detection/athena.py', 'cloud_detection/detections.py'])

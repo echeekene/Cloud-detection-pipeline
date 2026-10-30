@@ -1,0 +1,30 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {"Sid": "ReadOnlyDiscovery", "Effect": "Allow", "Action": ["lambda:GetAccountSettings", "logs:DescribeLogGroups", "ssm:DescribeParameters"], "Resource": "*"},
+    {"Sid": "ManageAlertRunner", "Effect": "Allow",
+     "Action": ["lambda:CreateFunction", "lambda:GetFunction", "lambda:GetFunctionConfiguration", "lambda:GetFunctionCodeSigningConfig", "lambda:DeleteFunction", "lambda:UpdateFunctionCode", "lambda:UpdateFunctionConfiguration", "lambda:ListVersionsByFunction", "lambda:AddPermission", "lambda:RemovePermission", "lambda:GetPolicy", "lambda:InvokeFunction", "lambda:GetFunctionConcurrency", "lambda:PutFunctionEventInvokeConfig", "lambda:GetFunctionEventInvokeConfig", "lambda:UpdateFunctionEventInvokeConfig", "lambda:DeleteFunctionEventInvokeConfig", "lambda:TagResource", "lambda:UntagResource", "lambda:ListTags"],
+     "Resource": "arn:aws:lambda:us-east-1:${account_id}:function:cloud-detection-alert-runner"},
+    {"Sid": "ManageAlertLogs", "Effect": "Allow",
+     "Action": ["logs:CreateLogGroup", "logs:DeleteLogGroup", "logs:PutRetentionPolicy", "logs:DeleteRetentionPolicy", "logs:TagResource", "logs:UntagResource", "logs:ListTagsForResource", "logs:TagLogGroup", "logs:ListTagsLogGroup", "logs:FilterLogEvents", "logs:GetLogEvents", "logs:DescribeLogStreams"],
+     "Resource": ["arn:aws:logs:us-east-1:${account_id}:log-group:/aws/lambda/cloud-detection-alert-runner", "arn:aws:logs:us-east-1:${account_id}:log-group:/aws/lambda/cloud-detection-alert-runner:*"]},
+    {"Sid": "ManageAlertRole", "Effect": "Allow",
+     "Action": ["iam:CreateRole", "iam:GetRole", "iam:DeleteRole", "iam:TagRole", "iam:UntagRole", "iam:PutRolePolicy", "iam:GetRolePolicy", "iam:DeleteRolePolicy", "iam:ListRolePolicies", "iam:ListAttachedRolePolicies", "iam:ListInstanceProfilesForRole"],
+     "Resource": "arn:aws:iam::${account_id}:role/cloud-detection-alert-runner"},
+    {"Sid": "PassAlertRoleToLambdaOnly", "Effect": "Allow", "Action": "iam:PassRole",
+     "Resource": "arn:aws:iam::${account_id}:role/cloud-detection-alert-runner",
+     "Condition": {"StringEquals": {"iam:PassedToService": "lambda.amazonaws.com"}}},
+    {"Sid": "ManageDedupeTable", "Effect": "Allow",
+     "Action": ["dynamodb:CreateTable", "dynamodb:DescribeTable", "dynamodb:UpdateTable", "dynamodb:DeleteTable", "dynamodb:DescribeTimeToLive", "dynamodb:UpdateTimeToLive", "dynamodb:DescribeContinuousBackups", "dynamodb:TagResource", "dynamodb:UntagResource", "dynamodb:ListTagsOfResource", "dynamodb:Scan"],
+     "Resource": "arn:aws:dynamodb:us-east-1:${account_id}:table/cloud-detection-alert-dedupe"},
+    {"Sid": "ManageAlertFailureQueue", "Effect": "Allow",
+     "Action": ["sqs:CreateQueue", "sqs:DeleteQueue", "sqs:GetQueueUrl", "sqs:GetQueueAttributes", "sqs:SetQueueAttributes", "sqs:TagQueue", "sqs:UntagQueue", "sqs:ListQueueTags", "sqs:ReceiveMessage", "sqs:DeleteMessage"],
+     "Resource": "arn:aws:sqs:us-east-1:${account_id}:cloud-detection-alert-failures"},
+    {"Sid": "ManageSchedule", "Effect": "Allow",
+     "Action": ["events:PutRule", "events:DescribeRule", "events:DeleteRule", "events:EnableRule", "events:DisableRule", "events:PutTargets", "events:RemoveTargets", "events:ListTargetsByRule", "events:TagResource", "events:UntagResource", "events:ListTagsForResource"],
+     "Resource": "arn:aws:events:us-east-1:${account_id}:rule/cloud-detection-alert-runner-schedule"},
+    {"Sid": "ManageWebhookParameter", "Effect": "Allow",
+     "Action": ["ssm:PutParameter", "ssm:GetParameter", "ssm:DeleteParameter", "ssm:AddTagsToResource", "ssm:ListTagsForResource"],
+     "Resource": "arn:aws:ssm:us-east-1:${account_id}:parameter/cloud-detection/*"}
+  ]
+}
