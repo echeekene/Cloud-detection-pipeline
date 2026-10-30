@@ -79,6 +79,14 @@ The current billing console showed an estimated USD 0.00 with the bill pending. 
 
 The [aggregate verification report](evidence/automation-verification.json) records these results. Original event payloads, source objects, runtime receipts, and billing screenshots remain private outside Git. Logging and the automatic processing trigger remain enabled at this stopping point; local Splunk test alerts remain disabled.
 
+## Pause and resume
+
+On October 29, 2026 the pipeline was paused to limit cost: trail logging stopped, the S3 notification removed, and the processor's reserved concurrency set to zero. The pause used direct AWS API calls, so Terraform state still described an active pipeline.
+
+On October 30, 2026, after state moved to S3, the first plans showed exactly that drift. Applying the foundation and automation plans resumed the pipeline. Checks afterwards: `IsLogging` true, no reserved concurrency, a newly delivered CloudTrail file processed automatically (1 object, 4 records), and zero messages in the failure queue.
+
+**Lesson:** pausing outside Terraform works but creates drift. A Terraform variable for a paused mode would keep state and reality in agreement.
+
 ## Deployment issues encountered
 
 The deployment identity exceeded its inline-policy size limit, so the same scoped permissions were attached as a customer-managed policy. The developer session then needed a normal sign-in refresh before the new permissions were available.
