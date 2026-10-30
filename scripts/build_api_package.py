@@ -10,6 +10,7 @@ from zipfile import ZipFile, ZipInfo, ZIP_DEFLATED
 TARGETS = {
     "api": ("__init__.py", "api_handler.py", "athena.py", "detections.py"),
     "alerts": ("__init__.py", "alerting.py", "athena.py", "detections.py"),
+    "simulator": ("__init__.py", "simulator.py"),
 }
 FILES = TARGETS["api"]
 

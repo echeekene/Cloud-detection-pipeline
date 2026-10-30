@@ -11,6 +11,8 @@ Code, Terraform, deploy policy, and tests are written. Deployment results are re
 3. Each finding is checked against a DynamoDB table keyed by rule and event ID. New findings are posted to Slack, then recorded with a seven-day expiry.
 4. Slack messages carry the rule name and severity, the action and principal, source IP, region, MITRE ATT&CK link, and a link to the rule's [runbook](runbooks/).
 
+Simulated attacks from the [attack simulator](SIMULATION.md) are labeled **[SIMULATION]** in Slack, and a daily scorecard reports how many were caught and how fast.
+
 ## Design choices
 
 - **At-least-once delivery.** A finding is recorded only after Slack accepts it. A crash between the two can repeat one alert but never drop it.

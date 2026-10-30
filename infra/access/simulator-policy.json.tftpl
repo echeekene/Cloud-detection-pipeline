@@ -1,0 +1,33 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {"Sid": "ReadOnlyDiscovery", "Effect": "Allow", "Action": ["lambda:GetAccountSettings", "logs:DescribeLogGroups"], "Resource": "*"},
+    {"Sid": "ManageSimulatorFunction", "Effect": "Allow",
+     "Action": ["lambda:CreateFunction", "lambda:GetFunction", "lambda:GetFunctionConfiguration", "lambda:GetFunctionCodeSigningConfig", "lambda:DeleteFunction", "lambda:UpdateFunctionCode", "lambda:UpdateFunctionConfiguration", "lambda:ListVersionsByFunction", "lambda:AddPermission", "lambda:RemovePermission", "lambda:GetPolicy", "lambda:InvokeFunction", "lambda:GetFunctionConcurrency", "lambda:PutFunctionEventInvokeConfig", "lambda:GetFunctionEventInvokeConfig", "lambda:UpdateFunctionEventInvokeConfig", "lambda:DeleteFunctionEventInvokeConfig", "lambda:TagResource", "lambda:UntagResource", "lambda:ListTags"],
+     "Resource": "arn:aws:lambda:us-east-1:${account_id}:function:cloud-detection-attack-simulator"},
+    {"Sid": "ManageSimulatorLogs", "Effect": "Allow",
+     "Action": ["logs:CreateLogGroup", "logs:DeleteLogGroup", "logs:PutRetentionPolicy", "logs:DeleteRetentionPolicy", "logs:TagResource", "logs:UntagResource", "logs:ListTagsForResource", "logs:TagLogGroup", "logs:ListTagsLogGroup", "logs:FilterLogEvents", "logs:GetLogEvents", "logs:DescribeLogStreams"],
+     "Resource": ["arn:aws:logs:us-east-1:${account_id}:log-group:/aws/lambda/cloud-detection-attack-simulator", "arn:aws:logs:us-east-1:${account_id}:log-group:/aws/lambda/cloud-detection-attack-simulator:*"]},
+    {"Sid": "ManageSimulatorRole", "Effect": "Allow",
+     "Action": ["iam:CreateRole", "iam:GetRole", "iam:DeleteRole", "iam:TagRole", "iam:UntagRole", "iam:PutRolePolicy", "iam:GetRolePolicy", "iam:DeleteRolePolicy", "iam:ListRolePolicies", "iam:ListAttachedRolePolicies", "iam:ListInstanceProfilesForRole"],
+     "Resource": "arn:aws:iam::${account_id}:role/cloud-detection-attack-simulator"},
+    {"Sid": "PassSimulatorRoleToLambdaOnly", "Effect": "Allow", "Action": "iam:PassRole",
+     "Resource": "arn:aws:iam::${account_id}:role/cloud-detection-attack-simulator",
+     "Condition": {"StringEquals": {"iam:PassedToService": "lambda.amazonaws.com"}}},
+    {"Sid": "ManageCanaryUser", "Effect": "Allow",
+     "Action": ["iam:CreateUser", "iam:GetUser", "iam:DeleteUser", "iam:TagUser", "iam:UntagUser", "iam:ListUserTags", "iam:ListAccessKeys", "iam:DeleteAccessKey", "iam:ListAttachedUserPolicies", "iam:DetachUserPolicy", "iam:ListGroupsForUser", "iam:ListUserPolicies", "iam:ListMFADevices", "iam:ListSSHPublicKeys", "iam:ListServiceSpecificCredentials", "iam:ListSigningCertificates", "iam:GetLoginProfile", "iam:DeleteLoginProfile"],
+     "Resource": "arn:aws:iam::${account_id}:user/cloud-detection-canary"},
+    {"Sid": "ManageCanaryPolicy", "Effect": "Allow",
+     "Action": ["iam:CreatePolicy", "iam:GetPolicy", "iam:GetPolicyVersion", "iam:ListPolicyVersions", "iam:CreatePolicyVersion", "iam:DeletePolicyVersion", "iam:DeletePolicy", "iam:TagPolicy", "iam:UntagPolicy", "iam:ListEntitiesForPolicy"],
+     "Resource": "arn:aws:iam::${account_id}:policy/cloud-detection-canary-deny-all"},
+    {"Sid": "ManageCanaryBucket", "Effect": "Allow",
+     "Action": ["s3:CreateBucket", "s3:DeleteBucket", "s3:ListBucket", "s3:ListBucketVersions", "s3:Get*", "s3:PutBucketPublicAccessBlock", "s3:PutEncryptionConfiguration", "s3:PutBucketTagging", "s3:DeleteObject", "s3:DeleteObjectVersion"],
+     "Resource": ["arn:aws:s3:::cloud-detection-${account_id}-us-east-1-canary", "arn:aws:s3:::cloud-detection-${account_id}-us-east-1-canary/*"]},
+    {"Sid": "ManageSimulationsTable", "Effect": "Allow",
+     "Action": ["dynamodb:CreateTable", "dynamodb:DescribeTable", "dynamodb:UpdateTable", "dynamodb:DeleteTable", "dynamodb:DescribeTimeToLive", "dynamodb:UpdateTimeToLive", "dynamodb:DescribeContinuousBackups", "dynamodb:TagResource", "dynamodb:UntagResource", "dynamodb:ListTagsOfResource", "dynamodb:Scan"],
+     "Resource": "arn:aws:dynamodb:us-east-1:${account_id}:table/cloud-detection-simulations"},
+    {"Sid": "ManageSimulatorSchedule", "Effect": "Allow",
+     "Action": ["events:PutRule", "events:DescribeRule", "events:DeleteRule", "events:EnableRule", "events:DisableRule", "events:PutTargets", "events:RemoveTargets", "events:ListTargetsByRule", "events:TagResource", "events:UntagResource", "events:ListTagsForResource"],
+     "Resource": "arn:aws:events:us-east-1:${account_id}:rule/cloud-detection-attack-simulator-*"}
+  ]
+}

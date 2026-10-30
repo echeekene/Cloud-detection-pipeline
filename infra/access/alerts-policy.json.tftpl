@@ -22,7 +22,7 @@
      "Resource": "arn:aws:sqs:us-east-1:${account_id}:cloud-detection-alert-failures"},
     {"Sid": "ManageSchedule", "Effect": "Allow",
      "Action": ["events:PutRule", "events:DescribeRule", "events:DeleteRule", "events:EnableRule", "events:DisableRule", "events:PutTargets", "events:RemoveTargets", "events:ListTargetsByRule", "events:TagResource", "events:UntagResource", "events:ListTagsForResource"],
-     "Resource": "arn:aws:events:us-east-1:${account_id}:rule/cloud-detection-alert-runner-schedule"},
+     "Resource": "arn:aws:events:us-east-1:${account_id}:rule/cloud-detection-alert-runner-*"},
     {"Sid": "ManageWebhookParameter", "Effect": "Allow",
      "Action": ["ssm:PutParameter", "ssm:GetParameter", "ssm:DeleteParameter", "ssm:AddTagsToResource", "ssm:ListTagsForResource"],
      "Resource": "arn:aws:ssm:us-east-1:${account_id}:parameter/cloud-detection/*"}

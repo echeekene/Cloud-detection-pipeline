@@ -54,11 +54,19 @@ run "least_privilege_runtime" {
   }
 }
 
+run "daily_scorecard" {
+  command = apply
+  assert {
+    condition     = aws_cloudwatch_event_rule.scorecard.schedule_expression == "cron(5 14 * * ? *)" && jsondecode(aws_cloudwatch_event_target.scorecard.input).scorecard
+    error_message = "The scorecard must run once a day with the scorecard input."
+  }
+}
+
 run "pause_through_terraform" {
   command = apply
   variables { enabled = false }
   assert {
-    condition     = aws_cloudwatch_event_rule.schedule.state == "DISABLED"
+    condition     = aws_cloudwatch_event_rule.schedule.state == "DISABLED" && aws_cloudwatch_event_rule.scorecard.state == "DISABLED"
     error_message = "Pausing must be possible without drift."
   }
 }

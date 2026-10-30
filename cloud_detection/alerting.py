@@ -23,6 +23,7 @@ DEDUPE_DAYS = 7
 REPO_URL = "https://github.com/echeekene/Cloud-detection-pipeline/blob/main/"
 REGION = re.compile(r"[a-z]{2}(?:-[a-z0-9]+)+-\d+")
 SEVERITY_MARK = {"high": ":red_circle:", "medium": ":large_orange_circle:", "low": ":white_circle:"}
+MATCH_WINDOW_SECONDS = 600
 
 
 def iso(moment):
@@ -43,19 +44,24 @@ def build_query(region, now, lookback_minutes):
     return " UNION ALL ".join(parts) + " ORDER BY event_time_iso", parameters
 
 
-def format_message(finding):
+def is_simulation(finding, simulator_role):
+    return bool(simulator_role) and f":assumed-role/{simulator_role}/" in (finding.get("principal") or "")
+
+
+def format_message(finding, simulation=False):
     rule = RULES[finding["detection_id"]]
     mitre = rule["mitre_attack"]
     mark = SEVERITY_MARK.get(rule["severity"], "")
     lines = [
-        f"{mark} *{rule['name']}* ({rule['severity']})",
+        ("[SIMULATION] " if simulation else "") + f"{mark} *{rule['name']}* ({rule['severity']})",
         f"*Event:* `{finding.get('event_name')}` from `{finding.get('event_source')}` at {finding.get('event_time_iso')}",
         f"*Principal:* `{finding.get('principal') or 'unknown'}`",
         f"*Source IP:* `{finding.get('source_ip') or 'unknown'}`  *Region:* `{finding.get('region')}`",
         f"*MITRE ATT&CK:* <https://attack.mitre.org/techniques/{mitre['id'].replace('.', '/')}/|{mitre['id']} {mitre['name']}>",
         f"*Runbook:* <{REPO_URL}{rule['runbook']}|triage steps>  *Event ID:* `{finding.get('event_id')}`",
     ]
-    return {"text": f"{rule['name']}: {finding.get('event_name')} by {finding.get('principal') or 'unknown'}",
+    prefix = "[SIMULATION] " if simulation else ""
+    return {"text": f"{prefix}{rule['name']}: {finding.get('event_name')} by {finding.get('principal') or 'unknown'}",
             "blocks": [{"type": "section", "text": {"type": "mrkdwn", "text": "\n".join(lines)}}]}
 
 
@@ -83,6 +89,70 @@ def record_sent(dynamodb, table, key, now):
             raise
 
 
+def _epoch(text):
+    return int(datetime.strptime(text[:19], "%Y-%m-%dT%H:%M:%S").replace(tzinfo=timezone.utc).timestamp())
+
+
+def _scan(dynamodb, table, **kwargs):
+    items, start = [], None
+    while True:
+        page = dynamodb.scan(TableName=table, **kwargs, **({"ExclusiveStartKey": start} if start else {}))
+        items += page.get("Items", [])
+        start = page.get("LastEvaluatedKey")
+        if not start:
+            return items
+
+
+def mark_detected(dynamodb, table, finding, now):
+    """Link a simulation finding to the earliest undetected simulation of the same rule nearby in time."""
+    event_at = _epoch(finding["event_time_iso"])
+    candidates = [item for item in _scan(dynamodb, table, FilterExpression="rule_id = :r AND attribute_not_exists(detected_at)",
+                                         ExpressionAttributeValues={":r": {"S": finding["detection_id"]}})
+                  if abs(int(item["started_at"]["N"]) - event_at) <= MATCH_WINDOW_SECONDS]
+    if not candidates:
+        print(json.dumps({"warning": "simulation finding without a matching record", "event_id": finding.get("event_id")}))
+        return None
+    match = min(candidates, key=lambda item: int(item["started_at"]["N"]))
+    dynamodb.update_item(TableName=table, Key={"sim_id": match["sim_id"]},
+                         UpdateExpression="SET detected_at = :d, detected_event_id = :e",
+                         ExpressionAttributeValues={":d": {"N": str(int(now.timestamp()))}, ":e": {"S": finding["event_id"]}})
+    return match["sim_id"]["S"]
+
+
+def scorecard(dynamodb, table, now, hours=24, grace_minutes=60):
+    """Summarize simulations from the last day: detected, missed, still pending, and time to detect."""
+    since = int(now.timestamp()) - hours * 3600
+    pending_after = int(now.timestamp()) - grace_minutes * 60
+    items = _scan(dynamodb, table, FilterExpression="started_at >= :s", ExpressionAttributeValues={":s": {"N": str(since)}})
+    detected, missed, pending, failed, delays = [], [], [], [], []
+    for item in items:
+        scenario = item["scenario"]["S"]
+        if item.get("status", {}).get("S") != "completed":
+            failed.append(scenario)
+        elif "detected_at" in item:
+            detected.append(scenario)
+            delays.append(int(item["detected_at"]["N"]) - int(item["started_at"]["N"]))
+        elif int(item["started_at"]["N"]) > pending_after:
+            pending.append(scenario)
+        else:
+            missed.append(scenario)
+    scored = len(detected) + len(missed)
+    delays.sort()
+    median = delays[len(delays) // 2] // 60 if delays else None
+    lines = [f":bar_chart: *Detection scorecard, last {hours} hours*",
+             f"*Caught:* {len(detected)} of {scored} simulated attacks" + (f" ({100 * len(detected) // scored}%)" if scored else ""),
+             f"*Median time to detect:* {median} min" if median is not None else "*Median time to detect:* no detections yet"]
+    if missed:
+        lines.append("*Missed:* " + ", ".join(sorted(missed)))
+    if pending:
+        lines.append(f"*Still within the {grace_minutes} minute window:* {len(pending)}")
+    if failed:
+        lines.append("*Simulations that failed to run:* " + ", ".join(sorted(failed)))
+    summary = {"detected": len(detected), "missed": len(missed), "pending": len(pending), "failed": len(failed),
+               "median_minutes": median}
+    return {"text": "\n".join(lines)}, summary
+
+
 def run(athena, dynamodb, send, config, now):
     findings = []
     for region in config["regions"]:
@@ -100,8 +170,11 @@ def run(athena, dynamodb, send, config, now):
         if sent == MAX_ALERTS:
             send({"text": f":warning: More than {MAX_ALERTS} new findings this run; remaining ones will be sent next run."})
             break
-        send(format_message(finding))
+        simulation = is_simulation(finding, config.get("simulator_role"))
+        send(format_message(finding, simulation))
         record_sent(dynamodb, config["table"], key, now)
+        if simulation and config.get("simulations_table"):
+            mark_detected(dynamodb, config["simulations_table"], finding, now)
         sent += 1
     summary = {"findings": len(findings), "alerts_sent": sent, "already_sent": skipped}
     print(json.dumps(summary))
@@ -123,7 +196,9 @@ def handler(event, context):
     config = {"workgroup": os.environ["ATHENA_WORKGROUP"], "table": os.environ["DEDUPE_TABLE"],
               "timeout_seconds": float(os.environ.get("QUERY_TIMEOUT_SECONDS", "60")),
               "regions": [r for r in os.environ.get("REGIONS", "us-east-1").split(",") if r],
-              "lookback_minutes": int(os.environ.get("LOOKBACK_MINUTES", "90"))}
+              "lookback_minutes": int(os.environ.get("LOOKBACK_MINUTES", "90")),
+              "simulator_role": os.environ.get("SIMULATOR_ROLE", ""),
+              "simulations_table": os.environ.get("SIMULATIONS_TABLE", "")}
     if isinstance(event, dict) and isinstance(event.get("lookback_minutes"), int):
         config["lookback_minutes"] = max(15, min(event["lookback_minutes"], 7 * 24 * 60))
     url = _get_webhook(boto3.client("ssm"), os.environ["WEBHOOK_PARAMETER"])
@@ -131,6 +206,13 @@ def handler(event, context):
     def send(message):
         post_slack(url, message)
 
+    if isinstance(event, dict) and event.get("scorecard") is True:
+        if not config["simulations_table"]:
+            return {"scorecard": "no simulations table configured"}
+        message, summary = scorecard(boto3.client("dynamodb"), config["simulations_table"], datetime.now(timezone.utc))
+        send(message)
+        print(json.dumps({"scorecard": summary}))
+        return summary
     if isinstance(event, dict) and event.get("test") is True:
         send({"text": ":white_check_mark: Cloud Detection Alerts test message. The alert pipeline can reach Slack."})
         return {"test_message_sent": True}

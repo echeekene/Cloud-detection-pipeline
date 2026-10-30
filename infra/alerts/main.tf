@@ -63,6 +63,8 @@ locals {
   bucket_arn       = "arn:aws:s3:::${local.analytics_bucket}"
   workgroup        = "cloud-detection-queries"
   log_group        = "/aws/lambda/${local.name}"
+  simulator_role   = "cloud-detection-attack-simulator"
+  simulations_arn  = "arn:aws:dynamodb:us-east-1:${var.expected_account_id}:table/cloud-detection-simulations"
 }
 
 resource "aws_dynamodb_table" "dedupe" {
@@ -145,6 +147,12 @@ resource "aws_iam_role_policy" "runner" {
         Resource = aws_dynamodb_table.dedupe.arn
       },
       {
+        # Links simulation findings to their ground truth record; the table is created by infra/simulator.
+        Effect   = "Allow"
+        Action   = ["dynamodb:Scan", "dynamodb:UpdateItem"]
+        Resource = local.simulations_arn
+      },
+      {
         Effect   = "Allow"
         Action   = ["ssm:GetParameter"]
         Resource = "arn:aws:ssm:us-east-1:${var.expected_account_id}:parameter${var.webhook_parameter_name}"
@@ -182,6 +190,8 @@ resource "aws_lambda_function" "runner" {
       REGIONS               = join(",", var.regions)
       LOOKBACK_MINUTES      = "90"
       QUERY_TIMEOUT_SECONDS = "60"
+      SIMULATOR_ROLE        = local.simulator_role
+      SIMULATIONS_TABLE     = "cloud-detection-simulations"
     }
   }
   depends_on = [aws_cloudwatch_log_group.runner, aws_iam_role_policy.runner]
@@ -215,6 +225,28 @@ resource "aws_lambda_permission" "schedule" {
   function_name = aws_lambda_function.runner.function_name
   principal     = "events.amazonaws.com"
   source_arn    = aws_cloudwatch_event_rule.schedule.arn
+}
+
+# Daily detection scorecard at 14:05 UTC (about 9 AM Central).
+resource "aws_cloudwatch_event_rule" "scorecard" {
+  name                = "${local.name}-scorecard"
+  description         = "Post the daily attack simulation scorecard to Slack."
+  schedule_expression = "cron(5 14 * * ? *)"
+  state               = var.enabled ? "ENABLED" : "DISABLED"
+}
+
+resource "aws_cloudwatch_event_target" "scorecard" {
+  rule  = aws_cloudwatch_event_rule.scorecard.name
+  arn   = aws_lambda_function.runner.arn
+  input = jsonencode({ scorecard = true })
+}
+
+resource "aws_lambda_permission" "scorecard" {
+  statement_id  = "AllowDailyScorecard"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.runner.function_name
+  principal     = "events.amazonaws.com"
+  source_arn    = aws_cloudwatch_event_rule.scorecard.arn
 }
 
 output "function_name" { value = aws_lambda_function.runner.function_name }
