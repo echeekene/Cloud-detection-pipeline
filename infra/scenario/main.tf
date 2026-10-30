@@ -1,5 +1,9 @@
 terraform {
-  required_version = ">= 1.9.0, < 2.0.0"
+  required_version = ">= 1.11.0, < 2.0.0"
+  # Shared settings come from infra/backend.hcl; see docs/STATE.md.
+  backend "s3" {
+    key = "scenario/terraform.tfstate"
+  }
   required_providers {
     aws = {
       source  = "hashicorp/aws"

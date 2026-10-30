@@ -20,3 +20,4 @@ dist/
 *.parquet
 *.json.gz
 *.ndjson
+backend.hcl

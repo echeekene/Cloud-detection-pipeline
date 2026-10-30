@@ -1,0 +1,6 @@
+# Copy to infra/backend.hcl (Git ignores it) and replace ACCOUNT_ID.
+# Each module supplies its own key; this file supplies the shared settings.
+bucket       = "cloud-detection-ACCOUNT_ID-us-east-1-tfstate"
+region       = "us-east-1"
+encrypt      = true
+use_lockfile = true
