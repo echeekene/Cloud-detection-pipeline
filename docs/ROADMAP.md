@@ -42,7 +42,7 @@ The Motorsport sample is a reference for explaining the architecture, choices, l
 3. Completed: S3-triggered Lambda processing with checked replay and a verified failure destination.
 4. Completed: [investigation report](INVESTIGATION_IAM_POLICY.md), MITRE ATT&CK mapping (T1098.003), and updated architecture diagram in the README.
 5. Completed: protected read-only findings API, deployed and verified with signed and unsigned requests. See [API.md](API.md).
-6. Production upgrades: shared rules with four new detections and runbooks (done in code), then remote Terraform state, scheduled detections with Slack alerts, health alarms, and CI/CD with a dedicated deploy role. Then validate the CloudTrail digest chain.
+6. Production upgrades: shared rules with four new detections and runbooks (done), remote Terraform state in S3 with native locking (done, see [STATE.md](STATE.md)), then scheduled detections with Slack alerts, health alarms, and CI/CD with a dedicated deploy role. Then validate the CloudTrail digest chain.
 7. Measure costs, test AWS teardown (including the deployer group and policy), and publish the portfolio writeup. The README rewrite is done.
 
 Automation and the controlled scenario are complete and verified; the API is deployed and verified. A randomized simulator, AI explanation, natural-language query endpoint, and findings website are optional stretch additions. The current data model is a normalized event table; a star schema has not been implemented.
