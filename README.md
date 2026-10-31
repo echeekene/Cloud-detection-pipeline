@@ -90,6 +90,20 @@ Athena and Splunk agree on every count. Scheduled Splunk alerts fired for both t
 
 Checks are recorded in [validation notes](docs/VALIDATION.md) and [evidence reports](docs/evidence/). Raw logs, credentials, Terraform state, and screenshots with account details are kept out of the repository.
 
+## Live alerting and attack simulation
+
+Every 15 minutes a scheduled Lambda runs all six detections over new events and posts each new finding to Slack once. Every six hours an attack simulator performs one harmless, reversible action on canary resources, and a daily scorecard reports how many were caught. First scorecard: **2 of 2 simulated attacks detected, median time to detect 10 minutes.**
+
+A simulated `StopLogging` event, alerted about 10 minutes after it happened (00:32:30 UTC event, 7:42 PM Central alert). The account ID is redacted:
+
+![Slack alert for a simulated CloudTrail StopLogging event](docs/images/slack-simulation-alert.png)
+
+Eight CloudWatch alarms watch the pipeline itself and post to the same channel. These are their first notices after deployment:
+
+![Slack messages from pipeline health alarms](docs/images/slack-health-alarms.png)
+
+Details: [alerts](docs/ALERTS.md), [attack simulation](docs/SIMULATION.md), [health monitoring](docs/MONITORING.md).
+
 ## Findings API
 
 A small read only API lets an authorized caller list detections, pull findings for a date range, or search events by user, IP address or action. Every route requires signed IAM credentials and is throttled. User input never becomes part of the SQL: values are checked against strict patterns and passed to Athena as query parameters, and tests send common injection strings to every filter.

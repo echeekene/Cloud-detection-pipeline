@@ -4,6 +4,8 @@
 
 First scorecard, October 30, 2026: **2 of 2 simulated attacks detected, 0 missed, median time to detect 10 minutes** (`access_key` and `trail_stop`). The `access_key` detection was found and recorded correctly but its Slack message was lost to the malformed webhook described in [ALERTS.md](ALERTS.md).
 
+![Slack alert for a simulated CloudTrail StopLogging event](images/slack-simulation-alert.png)
+
 ## Why
 
 A detection that never fires might be broken, and nobody would know. Every six hours an attack simulator performs one harmless, reversible action that a rule should catch, records what it did, and the daily scorecard reports whether the pipeline noticed and how fast.

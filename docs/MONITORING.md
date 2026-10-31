@@ -4,6 +4,8 @@
 
 Deployed October 30, 2026. All eight alarms reported to Slack. New alarms send one recovery notice when they first leave `INSUFFICIENT_DATA`; that burst confirmed the CloudWatch to SNS to Lambda to Slack path end to end.
 
+![Slack messages from pipeline health alarms](images/slack-health-alarms.png)
+
 ## Why
 
 Detections only help if the pipeline that feeds them is running. These alarms watch the pipeline itself and post to the same Slack channel as security findings, with a recovery message when each problem clears.
