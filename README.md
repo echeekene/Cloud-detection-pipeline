@@ -28,27 +28,7 @@ I built it to practice the work a cloud security or SOC analyst does: getting lo
 
 ## How it works
 
-```mermaid
-flowchart TD
-    A[AWS account activity] --> B[CloudTrail, all regions]
-    B --> C[Private S3 raw log bucket]
-    C -->|New file notification| D[Lambda: validate and normalize]
-    C -->|Manual sample| E[Python on my machine]
-    D --> F[Parquet by day and region]
-    E --> F
-    D --> G[Quarantine for bad records]
-    E --> G
-    F --> H[Glue catalog]
-    H --> I[Athena SQL detections]
-    E --> J[Labeled JSON export]
-    J --> K[Local Splunk dashboard and alerts]
-    I --> L[Findings API]
-    I --> M[Alert runner every 15 minutes]
-    M --> N[Slack]
-    O[Attack simulator every 6 hours] -->|Canary actions| A
-    M -->|Marks simulations detected| P[Daily scorecard]
-    P --> N
-```
+![Architecture: collect and process, detect and respond, validate and monitor, build and deploy](docs/images/architecture.svg)
 
 1. **Collect.** A dedicated CloudTrail trail writes management events from every region to a private S3 bucket.
 2. **Clean.** Python validates each event, sets aside bad or conflicting records, removes exact duplicates, converts times to UTC, and writes Parquet files grouped by day and region. New files are processed automatically by an S3 triggered Lambda; failures go to an SQS queue for review.
