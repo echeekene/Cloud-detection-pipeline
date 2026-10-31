@@ -33,6 +33,18 @@ variable "repository" {
   }
 }
 
+# GitHub now puts numeric IDs in the token subject (owner@id/name@id). Matching on them means a
+# deleted and recreated repository with the same name cannot assume these roles.
+variable "repository_ids" {
+  description = "Numeric GitHub owner and repository IDs, as shown in the token subject in CloudTrail."
+  type        = object({ owner = string, repository = string })
+  default     = { owner = "201620574", repository = "1440299891" }
+  validation {
+    condition     = can(regex("^[0-9]+$", var.repository_ids.owner)) && can(regex("^[0-9]+$", var.repository_ids.repository))
+    error_message = "Use the numeric IDs."
+  }
+}
+
 variable "create_oidc_provider" {
   description = "Set true only if the account has no GitHub OIDC provider yet. An account can hold one per URL."
   type        = bool
@@ -57,8 +69,9 @@ locals {
 
   # Pull requests and pushes to main may plan. Only jobs in the protected "production"
   # environment, which needs a manual approval in GitHub, may deploy.
-  plan_subjects   = ["repo:${var.repository}:pull_request", "repo:${var.repository}:ref:refs/heads/main"]
-  deploy_subjects = ["repo:${var.repository}:environment:production"]
+  subject         = "repo:${split("/", var.repository)[0]}@${var.repository_ids.owner}/${split("/", var.repository)[1]}@${var.repository_ids.repository}"
+  plan_subjects   = ["${local.subject}:pull_request", "${local.subject}:ref:refs/heads/main"]
+  deploy_subjects = ["${local.subject}:environment:production"]
 }
 
 resource "aws_iam_openid_connect_provider" "github" {

@@ -21,7 +21,7 @@ run "only_this_repository_can_assume_the_roles" {
     error_message = "Tokens must be minted for AWS STS."
   }
   assert {
-    condition     = alltrue([for s in concat(jsondecode(aws_iam_role.plan.assume_role_policy).Statement[0].Condition.StringEquals["token.actions.githubusercontent.com:sub"], jsondecode(aws_iam_role.deploy.assume_role_policy).Statement[0].Condition.StringEquals["token.actions.githubusercontent.com:sub"]) : startswith(s, "repo:echeekene/Cloud-detection-pipeline:") && !strcontains(s, "*")])
+    condition     = alltrue([for s in concat(jsondecode(aws_iam_role.plan.assume_role_policy).Statement[0].Condition.StringEquals["token.actions.githubusercontent.com:sub"], jsondecode(aws_iam_role.deploy.assume_role_policy).Statement[0].Condition.StringEquals["token.actions.githubusercontent.com:sub"]) : startswith(s, "repo:echeekene@201620574/Cloud-detection-pipeline@1440299891:") && !strcontains(s, "*")])
     error_message = "Trust exact subjects from this repository only, with no wildcards."
   }
 }
@@ -29,11 +29,11 @@ run "only_this_repository_can_assume_the_roles" {
 run "only_the_protected_environment_can_deploy" {
   command = apply
   assert {
-    condition     = jsondecode(aws_iam_role.deploy.assume_role_policy).Statement[0].Condition.StringEquals["token.actions.githubusercontent.com:sub"] == ["repo:echeekene/Cloud-detection-pipeline:environment:production"]
+    condition     = jsondecode(aws_iam_role.deploy.assume_role_policy).Statement[0].Condition.StringEquals["token.actions.githubusercontent.com:sub"] == ["repo:echeekene@201620574/Cloud-detection-pipeline@1440299891:environment:production"]
     error_message = "Deploys must come from the production environment, which needs approval."
   }
   assert {
-    condition     = !contains(jsondecode(aws_iam_role.plan.assume_role_policy).Statement[0].Condition.StringEquals["token.actions.githubusercontent.com:sub"], "repo:echeekene/Cloud-detection-pipeline:environment:production")
+    condition     = !contains(jsondecode(aws_iam_role.plan.assume_role_policy).Statement[0].Condition.StringEquals["token.actions.githubusercontent.com:sub"], "repo:echeekene@201620574/Cloud-detection-pipeline@1440299891:environment:production")
     error_message = "The plan role is not a deploy path."
   }
 }
