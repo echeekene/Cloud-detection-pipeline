@@ -199,6 +199,12 @@ def format_alarm(record):
     return {"text": f"{state}: {name}", "blocks": [{"type": "section", "text": {"type": "mrkdwn", "text": "\n".join(lines)}}]}
 
 
+def is_startup_notice(record):
+    """True for INSUFFICIENT_DATA to OK: a new alarm finishing its first evaluation, not a recovery."""
+    alarm = json.loads(record["Sns"]["Message"])
+    return alarm.get("OldStateValue") == "INSUFFICIENT_DATA" and alarm.get("NewStateValue") == "OK"
+
+
 def is_sns_event(event):
     records = event.get("Records") if isinstance(event, dict) else None
     return isinstance(records, list) and bool(records) and all(r.get("EventSource") == "aws:sns" for r in records)
@@ -230,9 +236,14 @@ def handler(event, context):
         post_slack(url, message)
 
     if is_sns_event(event):
+        sent = skipped = 0
         for record in event["Records"]:
+            if is_startup_notice(record):
+                skipped += 1
+                continue
             send(format_alarm(record))
-        return {"alarm_notifications_sent": len(event["Records"])}
+            sent += 1
+        return {"alarm_notifications_sent": sent, "startup_notices_skipped": skipped}
     if isinstance(event, dict) and event.get("scorecard") is True:
         if not config["simulations_table"]:
             return {"scorecard": "no simulations table configured"}

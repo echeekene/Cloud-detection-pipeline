@@ -2,7 +2,7 @@
 
 ## Status
 
-Deployed October 30, 2026. All eight alarms reported to Slack. New alarms send one recovery notice when they first leave `INSUFFICIENT_DATA`; that burst confirmed the CloudWatch to SNS to Lambda to Slack path end to end.
+Deployed October 30, 2026. All eight alarms reported to Slack. New alarms sent one recovery notice when they first left `INSUFFICIENT_DATA`; that burst confirmed the CloudWatch to SNS to Lambda to Slack path end to end. The runner now skips `INSUFFICIENT_DATA` to `OK` changes, so only real problems and real recoveries reach Slack.
 
 ![Slack messages from pipeline health alarms](images/slack-health-alarms.png)
 

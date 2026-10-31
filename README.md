@@ -1,6 +1,6 @@
 # Cloud Detection Pipeline
 
-A cloud security project that collects AWS account activity with CloudTrail, cleans it into queryable Parquet tables, and detects risky events with SQL in Athena and with Splunk alerts. Everything in AWS is defined in Terraform and checked by automated tests.
+A cloud security project that collects AWS account activity with CloudTrail, cleans it into queryable Parquet tables, and detects risky events with SQL in Athena. Detections run every 15 minutes and alert in Slack, an attack simulator checks that they still fire, and changes reach AWS through a reviewed CI/CD pipeline. Everything in AWS is defined in Terraform and checked by automated tests.
 
 I built it to practice the work a cloud security or SOC analyst does: getting logs into a usable shape, writing detections, proving they fire, and investigating what they find.
 
@@ -9,20 +9,22 @@ I built it to practice the work a cloud security or SOC analyst does: getting lo
 **What this is**
 
 - A working pipeline in a real AWS account: CloudTrail logs land in S3, a Lambda function cleans each new file automatically, and Athena queries the result.
-- Two detections, each written three ways (Python, Athena SQL, Splunk SPL) and checked to agree:
-  - successful console logins without MFA
-  - managed policies attached to IAM users
+- Six detections mapped to MITRE ATT&CK, each with SQL and Python logic tested to agree and a triage runbook. The first two are also written in Splunk SPL.
+- Live alerting: every 15 minutes the detections run in Athena and each new finding reaches Slack exactly once.
+- Continuous validation: an attack simulator performs a harmless, reversible action every six hours, and a daily scorecard reports what was caught and how fast.
+- Health monitoring: eight CloudWatch alarms watch the pipeline itself.
 - A real, controlled test of the IAM detection: a harmless permission change was made, detected, investigated in a [written report](docs/INVESTIGATION_IAM_POLICY.md), and reversed.
-- Infrastructure as code with security defaults: encrypted and versioned buckets, blocked public access, HTTPS only, short data retention, and a per query scan limit.
-- 69 Python tests and 15 Terraform mock tests, run on every push by GitHub Actions.
+- CI/CD through GitHub OIDC: pull requests get a read only plan, and deploys need my approval and apply only the reviewed changes. No AWS keys are stored in GitHub.
+- Infrastructure as code with security defaults: encrypted and versioned buckets, blocked public access, HTTPS only, short data retention, remote state with locking, and a per query scan limit.
+- 90 Python tests and 31 Terraform mock tests, run on every push by GitHub Actions.
 
 **What this is not**
 
-- **Not a production SIEM.** It runs on small samples (34 real events), uses a local Splunk trial, and has no live alert schedule or on call notifications.
+- **Not a production SIEM.** It watches one lab account with low event volume. Alerts go to one Slack channel with no on call paging or backup channel, and Splunk is a local trial with manual imports.
 - **Not a security assessment of my account.** Zero real findings only means these two rules did not match in the sampled data.
-- **Not proof against real attackers.** The no MFA finding comes from synthetic test events, and the IAM finding comes from a change I made on purpose. No real compromise was simulated.
-- **Not complete detection coverage.** Two rules cover two behaviors. Many common AWS attack paths are not detected.
-- **Not a least privilege account.** The project resources are tightly scoped, but the identity I deploy with has broader existing permissions.
+- **Not proof against real attackers.** Findings come from synthetic events, a change I made on purpose, and the simulator's canary actions. No real compromise was simulated.
+- **Not complete detection coverage.** Six rules cover six behaviors. Many common AWS attack paths are not detected.
+- **Not fully least privilege.** CI deploys with scoped roles, but my own admin user keeps `IAMFullAccess` so I never need the root user. That is an accepted risk, explained under security controls.
 
 ## How it works
 
@@ -41,12 +43,18 @@ flowchart TD
     E --> J[Labeled JSON export]
     J --> K[Local Splunk dashboard and alerts]
     I --> L[Findings API]
+    I --> M[Alert runner every 15 minutes]
+    M --> N[Slack]
+    O[Attack simulator every 6 hours] -->|Canary actions| A
+    M -->|Marks simulations detected| P[Daily scorecard]
+    P --> N
 ```
 
 1. **Collect.** A dedicated CloudTrail trail writes management events from every region to a private S3 bucket.
 2. **Clean.** Python validates each event, sets aside bad or conflicting records, removes exact duplicates, converts times to UTC, and writes Parquet files grouped by day and region. New files are processed automatically by an S3 triggered Lambda; failures go to an SQS queue for review.
 3. **Query.** Glue describes the Parquet files so Athena can run SQL over them. Real and synthetic data live in separate tables so a test finding is never mistaken for real activity.
-4. **Detect and investigate.** The same rules run in Athena and in a local Splunk dashboard. Comparing both counts confirms they read the data the same way.
+4. **Detect and alert.** A scheduled Lambda runs every rule in Athena and posts each new finding to Slack once, with severity, MITRE technique and a runbook link.
+5. **Prove it still works.** The simulator triggers rules on purpose, and the scorecard reports any it missed.
 
 More detail: [data model](docs/DATA_MODEL.md), [automation](docs/AUTOMATION.md), [Athena](docs/ATHENA.md), [Splunk](docs/SPLUNK.md), [design decisions](docs/DECISIONS.md).
 
@@ -55,11 +63,13 @@ More detail: [data model](docs/DATA_MODEL.md), [automation](docs/AUTOMATION.md),
 | Area | Tools |
 | --- | --- |
 | Logging and storage | AWS CloudTrail, Amazon S3 |
-| Infrastructure | Terraform (foundation, analytics, scenario, automation, and API modules) |
+| Infrastructure | Terraform in ten modules, S3 remote state with native locking |
 | Processing | Python, PyArrow, AWS Lambda, Amazon SQS, CloudWatch Logs |
 | Querying | AWS Glue, Amazon Athena, DuckDB for local checks |
 | Security monitoring | Splunk Enterprise (local) |
 | API | API Gateway HTTP API with IAM authorization, Lambda, Athena |
+| Alerting and validation | EventBridge schedules, DynamoDB dedupe and simulation records, Slack, CloudWatch alarms, SNS |
+| CI/CD | GitHub Actions, OIDC roles, protected environment with required approval |
 | Testing | Python unittest, Terraform mock tests, GitHub Actions |
 
 ## Detections
@@ -73,7 +83,7 @@ A missing MFA value is treated as unknown, not as "no MFA," so the rule does not
 
 Rule sources: [Python](cloud_detection/pipeline.py), [SQL](sql/detections/), [Splunk SPL](splunk/searches/).
 
-Four more rules are defined in [one shared module](cloud_detection/detections.py) used by the API: root account console login, IAM access key created, CloudTrail logging stopped or trail deleted, and S3 public access block removed. Each has tests that check its SQL and Python logic agree, plus a [triage runbook](docs/runbooks/). They are not yet tested against real events or running on a schedule.
+Four more rules live in [one shared module](cloud_detection/detections.py) used by the API and the alert runner: root account console login, IAM access key created, CloudTrail logging stopped or trail deleted, and S3 public access block removed. Each has tests that check its SQL and Python logic agree, plus a [triage runbook](docs/runbooks/). All six run every 15 minutes, and the simulator exercises four of them against real AWS events.
 
 ## Results
 
@@ -110,6 +120,16 @@ A small read only API lets an authorized caller list detections, pull findings f
 
 **Status:** deployed and verified. Unsigned requests get 403 on every route; signed requests from an authorized reader get 200, and a live query returned a real finding from the automated table. See [API notes](docs/API.md).
 
+## Deployment pipeline
+
+Changes reach AWS through GitHub Actions with short lived OIDC credentials:
+
+1. A pull request runs the tests, then `terraform plan` with a read only role that is denied access to secrets and log data.
+2. A push to `main` plans again and waits for my approval in a protected `production` environment.
+3. The deploy role plans once more and applies only if the changes match the plan I approved.
+
+Both roles trust only this repository, matched by its numeric GitHub IDs, so a recreated repository with the same name cannot use them. CI deploys the api, alerts, simulator and monitoring modules; the older modules and the CI roles themselves stay manual. See [CI/CD](docs/CICD.md).
+
 ## Running it locally
 
 Python 3.11 or newer. The local example uses synthetic data and needs no AWS account.
@@ -126,9 +146,9 @@ The first command reports one synthetic finding. The second builds a Parquet dat
 
 ## Testing
 
-- **69 Python tests** cover bad events, UTC boundaries, missing MFA values, duplicate conflicts, size limits, output integrity, reruns, SQL agreement, Splunk exports, Lambda processing and packaging, and API validation, injection rejection and timeouts.
-- **15 Terraform mock tests** check settings such as encryption, retention, scoped permissions, and that every API route requires IAM authorization. They do not create resources.
-- **Live checks** in AWS confirmed log delivery, automatic processing of a new file, safe reprocessing of the same file, Athena read back, and delivery of a deliberate failure to SQS.
+- **90 Python tests** cover bad events, UTC boundaries, missing MFA values, duplicate conflicts, size limits, output integrity, reruns, SQL agreement for all six rules, runbooks, Splunk exports, Lambda packaging, API injection rejection, alert dedupe and retries, Slack webhook validation, simulator restore on failure, scoring, and plan fingerprints.
+- **31 Terraform mock tests** check settings such as encryption, retention, scoped permissions, IAM authorization on every API route, alarm behavior when data goes missing, and that only this repository's protected environment can deploy. They do not create resources.
+- **Live checks** in AWS confirmed log delivery, automatic processing, safe reprocessing, Athena read back, failure delivery to SQS, Slack alerts, health alarms, simulator scoring, and a full approved deploy through CI.
 
 GitHub Actions runs the Python suite, both examples, and Terraform format, validate and test on every push.
 
@@ -138,6 +158,9 @@ GitHub Actions runs the Python suite, both examples, and Terraform format, valid
 - Raw logs expire after 30 days; analytics data and query results after 7 days.
 - Athena encrypts results and stops any query that would scan more than 10 MiB.
 - Each Lambda role can touch only its own prefixes. The API role is read only.
+- The Slack webhook lives in an SSM SecureString created outside Terraform, so it never enters state, and the runner accepts only exact Slack webhook URLs.
+- The simulator acts only on canary resources with no permissions and restores every change in a `finally` block.
+- **Accepted risk:** my daily admin user `ekene-security-admin` keeps `IAMFullAccess`. Without it I would need the root user to change IAM, which is worse. MFA stays on, CI never uses this user, and in a team setting this would become a separate admin role that requires MFA to assume.
 - Real account access keeps MFA on. The no MFA rule is tested with synthetic events instead.
 - Spending ceiling for the whole build is **$20**. The billing console showed an estimated $0.00 with the bill still pending. Budget alerts warn but do not stop charges, so the real control is tearing the lab down.
 
@@ -155,6 +178,10 @@ GitHub Actions runs the Python suite, both examples, and Terraform format, valid
 
 **The API deployment stalled on one permission.** Access Analyzer flagged `apigateway:TagResource` as an invalid action, so I removed it from the deploy policy. API Gateway then required exactly that action to create the tagged stage. I added it back and the IAM simulator allowed it, but real calls were still denied for several minutes, so I stopped with 11 of 12 resources and documented how to resume. The same plan applied cleanly later. *Lesson:* a policy validator and the service can disagree, and IAM changes take time to propagate, so test the real call and allow for delay.
 
+**The Slack webhook was pasted seven times.** It went into a hidden prompt, so I could not see the repeats. Slack answered 200 and delivered nothing. The runner now rejects anything that is not exactly one Slack webhook URL, and I rotated the webhook after it later appeared on screen.
+
+**CI could not assume its AWS role at first.** The account ID was saved as an environment secret, which the plan jobs cannot read, so the role ARN was empty. Then AWS rejected the token because GitHub now includes numeric owner and repository IDs in the token subject. CloudTrail's `AssumeRoleWithWebIdentity` events showed the exact subject, and matching on the IDs turned out to be stronger anyway.
+
 **I started over once.** My first version scaffolded VPC Flow Logs and GuardDuty alongside CloudTrail. I replaced it with a smaller pipeline built and tested one piece at a time, and kept the original history in Git.
 
 ## What I would do differently
@@ -164,6 +191,8 @@ GitHub Actions runs the Python suite, both examples, and Terraform format, valid
 - **Design for duplicates across files from the start.** Each run is safe to repeat, but the same event in two different log files can still be counted twice.
 - **Forward events to Splunk automatically** with the HTTP Event Collector instead of manual uploads, so detections run on live data.
 - **Use a dedicated, least privilege deployment identity** from the beginning rather than tightening permissions after the fact.
+- **Use a separate admin role that requires MFA** instead of keeping `IAMFullAccess` on my daily user.
+- **Add an email backup alert channel,** so a broken Slack path cannot silence both findings and health alarms.
 - **Test teardown early,** so cleanup is proven before the project grows instead of being one of the last steps.
 - **Add a time zone check at ingestion** that compares the parsed time with the original value before indexing.
 
@@ -171,6 +200,8 @@ GitHub Actions runs the Python suite, both examples, and Terraform format, valid
 
 - Detections run on chosen snapshots, not all current account activity, and Splunk imports are manual.
 - Events repeated across different log files can be counted more than once, and Lambda output is not written atomically across partitions.
+- Alerts and health alarms share one Slack channel with no backup channel.
+- Foundation, analytics and automation are still deployed by hand.
 - CloudTrail digest validation, a measured final cost, and a tested teardown are not finished yet.
 
 ## Repository layout
@@ -184,14 +215,19 @@ infra/analytics/    Analytics bucket, Glue tables, Athena workgroup
 infra/scenario/     Temporary IAM test user and policy for the controlled test
 infra/automation/   S3 triggered Lambda, failure queue, automated table
 infra/api/          Findings API: API Gateway, Lambda, read only role
+infra/alerts/       Scheduled detection runner, dedupe table, daily scorecard
+infra/simulator/    Attack simulator, canary user and bucket, simulation records
+infra/monitoring/   Health alarms and SNS topic
+infra/state/        Bucket for remote Terraform state
+infra/cicd/         GitHub OIDC plan and deploy roles
 infra/access/       Reviewed permission templates for deployment
-scripts/            Packaging, snapshot preparation, Athena checks, API client
+scripts/            Packaging, CI plan and deploy, snapshot preparation, Athena checks, API client
 sql/                Detection queries and table definition
 splunk/             Searches, dashboard XML, alert settings
-docs/               Setup, decisions, investigation, API spec, evidence
-.github/workflows/  Python and Terraform checks
+docs/               Setup, decisions, investigation, runbooks, API spec, evidence
+.github/            Python and Terraform checks, plan and deploy workflow, Dependabot
 ```
 
 ## What is next
 
-Add scheduled detections with Slack alerts, pipeline health alarms, remote Terraform state, and CI/CD with a dedicated deploy role, then validate the CloudTrail digest chain, measure the final cost, and tear down the AWS resources with a tested procedure. AI summaries of findings and a randomized attack simulator are optional additions. Progress is tracked in the [roadmap](docs/ROADMAP.md).
+Validate the CloudTrail digest chain, measure the final cost, and tear down the AWS resources with a tested procedure. AI summaries of findings are an optional addition. Progress is tracked in the [roadmap](docs/ROADMAP.md).

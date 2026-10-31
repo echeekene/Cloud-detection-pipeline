@@ -1,0 +1,11 @@
+# Keeps the SHA pinned GitHub Actions current. Each update arrives as a pull request,
+# which runs the read only plan before anything can deploy.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    groups:
+      actions:
+        patterns: ["*"]

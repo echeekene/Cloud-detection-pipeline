@@ -4,7 +4,7 @@ permissions:
   contents: read
 jobs:
   terraform:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     strategy:
       matrix:
         directory: [state, foundation, analytics, scenario, automation, api, alerts, simulator, monitoring, cicd]
@@ -12,8 +12,9 @@ jobs:
       run:
         working-directory: infra/${{ matrix.directory }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: hashicorp/setup-terraform@v3
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: { persist-credentials: false }
+      - uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
         with:
           terraform_version: '1.11.4'
       - run: terraform fmt -check -recursive
