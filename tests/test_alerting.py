@@ -105,10 +105,15 @@ class AlertingTests(unittest.TestCase):
         def opener(request, timeout):
             calls.append((request.full_url, json.loads(request.data), timeout))
             return Response()
-        post_slack("https://hooks.slack.com/services/T/B/x", {"text": "hi"}, opener=opener)
+        post_slack("https://hooks.slack.com/services/T1/B2/abc", {"text": "hi"}, opener=opener)
         self.assertEqual(calls[0][1], {"text": "hi"})
         with self.assertRaises(ValueError):
             post_slack("https://example.com/collect", {"text": "hi"}, opener=opener)
+        doubled = "https://hooks.slack.com/services/T1/B2/abc" * 2
+        for bad in (doubled, "https://hooks.slack.com/services/T1/B2/abc\n", "https://hooks.slack.com/services/T1/B2"):
+            with self.subTest(url=bad[:60]), self.assertRaises(ValueError):
+                post_slack(bad, {"text": "hi"}, opener=opener)
+        self.assertEqual(len(calls), 1)
 
 
 class AlarmTests(unittest.TestCase):

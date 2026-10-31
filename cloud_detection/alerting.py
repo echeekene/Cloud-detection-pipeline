@@ -22,6 +22,7 @@ MAX_ALERTS = 20
 DEDUPE_DAYS = 7
 REPO_URL = "https://github.com/echeekene/Cloud-detection-pipeline/blob/main/"
 REGION = re.compile(r"[a-z]{2}(?:-[a-z0-9]+)+-\d+")
+WEBHOOK = re.compile(r"https://hooks\.slack\.com/services/T[A-Z0-9]+/B[A-Z0-9]+/[A-Za-z0-9]+")
 SEVERITY_MARK = {"high": ":red_circle:", "medium": ":large_orange_circle:", "low": ":white_circle:"}
 MATCH_WINDOW_SECONDS = 600
 
@@ -66,8 +67,8 @@ def format_message(finding, simulation=False):
 
 
 def post_slack(url, message, opener=urllib.request.urlopen):
-    if not url.startswith("https://hooks.slack.com/"):
-        raise ValueError("webhook must be a Slack incoming webhook URL")
+    if not WEBHOOK.fullmatch(url):
+        raise ValueError("webhook must be exactly one Slack incoming webhook URL")
     request = urllib.request.Request(url, data=json.dumps(message).encode(), method="POST",
                                      headers={"Content-Type": "application/json"})
     with opener(request, timeout=10) as response:
