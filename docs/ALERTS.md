@@ -2,7 +2,9 @@
 
 ## Status
 
-Code, Terraform, deploy policy, and tests are written. Deployment results are recorded below once verified.
+**Deployed and verified on October 30, 2026.** A test message reached `#security-alerts`, and a simulated `StopLogging` event produced a high severity alert about 10 minutes after it happened.
+
+**Incident during rollout.** The first stored webhook was the URL pasted seven times into a hidden prompt, saved as one 572 character string. Slack returned HTTP 200 for requests to it but delivered nothing, so test messages reported success while the channel stayed empty, and two real findings were recorded as sent but never seen. Found by checking the stored value's shape without revealing it. Fixes: the runner now accepts exactly one well formed webhook URL, the setup checks a webhook with a live post before storing it, and the exposed webhook was replaced. **Lesson:** a 200 response is not proof of delivery; verify the alert channel end to end.
 
 ## How it works
 
