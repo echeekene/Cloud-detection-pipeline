@@ -1,9 +1,10 @@
-"""Build a deterministic Lambda zip for the findings API or the alert runner (standard library and the runtime's boto3 only)."""
+"""Build a deterministic Lambda zip for the findings API, the alert runner or the attack simulator (standard library and the runtime's boto3 only)."""
 
 import argparse
 import base64
 import hashlib
 import json
+import os
 from pathlib import Path
 from zipfile import ZipFile, ZipInfo, ZIP_DEFLATED
 
@@ -34,6 +35,18 @@ def build(output, target="api"):
     return {"path": str(output.resolve()), "sha256": digest.hex(), "base64sha256": base64.b64encode(digest).decode()}
 
 
+def tfvars(package, tfvars_path, account):
+    """Terraform variables with the package path relative to the tfvars folder (the module folder),
+    so plans match on Windows, CloudShell and CI instead of differing by checkout location."""
+    if not (account and account.isdigit() and len(account) == 12):
+        raise ValueError("--tfvars requires --account with a 12-digit account ID")
+    tfvars_path = Path(tfvars_path)
+    relative = os.path.relpath(package["path"], tfvars_path.resolve().parent).replace(os.sep, "/")
+    content = {"expected_account_id": account, "package": {**package, "path": relative}}
+    tfvars_path.write_text(json.dumps(content, indent=2) + "\n")
+    return content
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", required=True, type=Path)
@@ -41,11 +54,11 @@ def main():
     parser.add_argument("--tfvars", type=Path, help="Also write a Terraform variables file for this package")
     parser.add_argument("--account", help="12-digit account ID for --tfvars")
     args = parser.parse_args()
+    if args.tfvars and not (args.account and args.account.isdigit() and len(args.account) == 12):
+        parser.error("--tfvars requires --account with a 12-digit account ID")
     package = build(args.output, args.target)
     if args.tfvars:
-        if not (args.account and args.account.isdigit() and len(args.account) == 12):
-            parser.error("--tfvars requires --account with a 12-digit account ID")
-        args.tfvars.write_text(json.dumps({"expected_account_id": args.account, "package": package}, indent=2))
+        tfvars(package, args.tfvars, args.account)
     print(json.dumps(package, indent=2))
 
 

@@ -32,7 +32,7 @@ Copy-Item infra/foundation/terraform.tfvars.example infra/foundation/terraform.t
 
 Edit `terraform.tfvars`: replace the placeholder account ID with the account shown by STS, confirm the region, and keep `allow_log_deletion = false`. The provider's `allowed_account_ids` setting rejects credentials from a different account during real operations. Mock tests do not prove this runtime account check.
 
-The deploying identity needs permissions to manage this project's S3 bucket configuration and trail, plus read account identity. A narrowly scoped deployment role and GitHub OIDC are future work; this stage does not generate a role or require using root.
+The deploying identity needs permissions to manage this project's S3 bucket configuration and trail, plus read account identity. This module stays a manual deploy and does not require root. Later modules deploy through GitHub Actions with OIDC; see [CICD.md](CICD.md).
 
 ## Validate and review
 

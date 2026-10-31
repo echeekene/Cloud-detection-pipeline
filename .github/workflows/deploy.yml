@@ -1,0 +1,120 @@
+name: Plan and deploy
+# Pull requests: plan with a read only role and show the changes on the run summary.
+# Main: plan, wait for approval in the "production" environment, then apply the same changes.
+# Credentials come from GitHub OIDC and expire within the hour. See docs/CICD.md.
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - cloud_detection/**
+      - infra/api/**
+      - infra/alerts/**
+      - infra/simulator/**
+      - infra/monitoring/**
+      - infra/access/**
+      - scripts/build_api_package.py
+      - scripts/ci_terraform.sh
+      - scripts/plan_fingerprint.py
+      - .github/workflows/deploy.yml
+  push:
+    branches: [main]
+    paths:
+      - cloud_detection/**
+      - infra/api/**
+      - infra/alerts/**
+      - infra/simulator/**
+      - infra/monitoring/**
+      - infra/access/**
+      - scripts/build_api_package.py
+      - scripts/ci_terraform.sh
+      - scripts/plan_fingerprint.py
+      - .github/workflows/deploy.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  TERRAFORM_VERSION: '1.16.6'
+  AWS_REGION: us-east-1
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with: { persist-credentials: false }
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with: { python-version: '3.12' }
+      - run: python -m pip install ".[test]"
+      - run: python -m unittest discover -s tests -v
+
+  plan:
+    needs: test
+    # Pull requests from forks get no AWS access.
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    strategy:
+      fail-fast: false
+      matrix:
+        module: [api, alerts, simulator, monitoring]
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with: { persist-credentials: false }
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with: { python-version: '3.12' }
+      - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3.1.2
+        with: { terraform_version: '${{ env.TERRAFORM_VERSION }}', terraform_wrapper: false }
+      - uses: aws-actions/configure-aws-credentials@7474bc4690e29a8392af63c5b98e7449536d5c3a # v4.3.1
+        with:
+          role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/cloud-detection-github-plan
+          role-session-name: plan-${{ matrix.module }}-${{ github.run_id }}
+          aws-region: ${{ env.AWS_REGION }}
+      - run: bash scripts/ci_terraform.sh plan ${{ matrix.module }}
+        env:
+          AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: fingerprint-${{ matrix.module }}
+          path: plan-fingerprint-${{ matrix.module }}.txt
+          retention-days: 7
+
+  deploy:
+    needs: plan
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: production   # required reviewer: the job waits here until approved
+    permissions:
+      contents: read
+      id-token: write
+    strategy:
+      max-parallel: 1
+      matrix:
+        module: [api, alerts, simulator, monitoring]
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with: { persist-credentials: false }
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with: { python-version: '3.12' }
+      - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3.1.2
+        with: { terraform_version: '${{ env.TERRAFORM_VERSION }}', terraform_wrapper: false }
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: fingerprint-${{ matrix.module }}
+          path: reviewed
+      - uses: aws-actions/configure-aws-credentials@7474bc4690e29a8392af63c5b98e7449536d5c3a # v4.3.1
+        with:
+          role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/cloud-detection-github-deploy
+          role-session-name: deploy-${{ matrix.module }}-${{ github.run_id }}
+          aws-region: ${{ env.AWS_REGION }}
+      - run: bash scripts/ci_terraform.sh deploy ${{ matrix.module }}
+        env:
+          AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
+          REVIEWED_FINGERPRINT_FILE: reviewed/plan-fingerprint-${{ matrix.module }}.txt

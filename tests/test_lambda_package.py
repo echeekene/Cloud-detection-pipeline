@@ -56,3 +56,15 @@ class ApiPackageTests(unittest.TestCase):
             build_api(Path(temp)/'alerts.zip', 'alerts')
             with ZipFile(Path(temp)/'alerts.zip') as archive:
                 self.assertEqual(sorted(archive.namelist()), ['cloud_detection/__init__.py', 'cloud_detection/alerting.py', 'cloud_detection/athena.py', 'cloud_detection/detections.py'])
+
+    def test_tfvars_use_a_path_relative_to_the_module(self):
+        from scripts.build_api_package import build as build_api, tfvars
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            (root/'infra'/'alerts').mkdir(parents=True)
+            package = build_api(root/'work'/'alerts.zip', 'alerts')
+            content = tfvars(package, root/'infra'/'alerts'/'terraform.tfvars.json', '111122223333')
+            self.assertEqual(content['package']['path'], '../../work/alerts.zip')
+            self.assertEqual(content['package']['sha256'], package['sha256'])
+            with self.assertRaisesRegex(ValueError, '12-digit'):
+                tfvars(package, root/'x.json', '1234')

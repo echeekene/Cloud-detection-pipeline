@@ -21,3 +21,8 @@ dist/
 *.json.gz
 *.ndjson
 backend.hcl
+
+# CI working files
+plan.log
+changes.txt
+plan-fingerprint-*.txt
