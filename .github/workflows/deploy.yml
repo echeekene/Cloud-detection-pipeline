@@ -72,14 +72,21 @@ jobs:
         with: { python-version: '3.12' }
       - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3.1.2
         with: { terraform_version: '${{ env.TERRAFORM_VERSION }}', terraform_wrapper: false }
+      - name: Read account ID
+        # Keep digits only, so a stray space or newline in the secret cannot break the role ARN.
+        run: |
+          id="$(printf '%s' "$RAW_ACCOUNT_ID" | tr -cd '0-9')"
+          [[ ${#id} -eq 12 ]] || { echo "The AWS_ACCOUNT_ID secret must contain a 12-digit account ID" >&2; exit 1; }
+          echo "::add-mask::$id"
+          echo "AWS_ACCOUNT_ID=$id" >> "$GITHUB_ENV"
+        env:
+          RAW_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
       - uses: aws-actions/configure-aws-credentials@7474bc4690e29a8392af63c5b98e7449536d5c3a # v4.3.1
         with:
-          role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/cloud-detection-github-plan
+          role-to-assume: arn:aws:iam::${{ env.AWS_ACCOUNT_ID }}:role/cloud-detection-github-plan
           role-session-name: plan-${{ matrix.module }}-${{ github.run_id }}
           aws-region: ${{ env.AWS_REGION }}
       - run: bash scripts/ci_terraform.sh plan ${{ matrix.module }}
-        env:
-          AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: fingerprint-${{ matrix.module }}
@@ -109,12 +116,20 @@ jobs:
         with:
           name: fingerprint-${{ matrix.module }}
           path: reviewed
+      - name: Read account ID
+        # Keep digits only, so a stray space or newline in the secret cannot break the role ARN.
+        run: |
+          id="$(printf '%s' "$RAW_ACCOUNT_ID" | tr -cd '0-9')"
+          [[ ${#id} -eq 12 ]] || { echo "The AWS_ACCOUNT_ID secret must contain a 12-digit account ID" >&2; exit 1; }
+          echo "::add-mask::$id"
+          echo "AWS_ACCOUNT_ID=$id" >> "$GITHUB_ENV"
+        env:
+          RAW_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
       - uses: aws-actions/configure-aws-credentials@7474bc4690e29a8392af63c5b98e7449536d5c3a # v4.3.1
         with:
-          role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/cloud-detection-github-deploy
+          role-to-assume: arn:aws:iam::${{ env.AWS_ACCOUNT_ID }}:role/cloud-detection-github-deploy
           role-session-name: deploy-${{ matrix.module }}-${{ github.run_id }}
           aws-region: ${{ env.AWS_REGION }}
       - run: bash scripts/ci_terraform.sh deploy ${{ matrix.module }}
         env:
-          AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
           REVIEWED_FINGERPRINT_FILE: reviewed/plan-fingerprint-${{ matrix.module }}.txt
