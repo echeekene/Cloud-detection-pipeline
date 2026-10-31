@@ -181,6 +181,28 @@ def run(athena, dynamodb, send, config, now):
     return summary
 
 
+ALARM_MARK = {"ALARM": ":rotating_light:", "OK": ":white_check_mark:", "INSUFFICIENT_DATA": ":grey_question:"}
+
+
+def format_alarm(record):
+    """Turn a CloudWatch alarm notification delivered through SNS into a Slack message."""
+    alarm = json.loads(record["Sns"]["Message"])
+    state = alarm.get("NewStateValue", "UNKNOWN")
+    name = alarm.get("AlarmName", "unknown alarm")
+    title = "Pipeline health: " + ("problem detected" if state == "ALARM" else "recovered" if state == "OK" else state.lower())
+    lines = [f"{ALARM_MARK.get(state, '')} *{title}*",
+             f"*Alarm:* `{name}`",
+             f"*What it watches:* {alarm.get('AlarmDescription') or 'no description'}",
+             f"*Reason:* {(alarm.get('NewStateReason') or '')[:300]}",
+             f"*Since:* {alarm.get('StateChangeTime', 'unknown')}"]
+    return {"text": f"{state}: {name}", "blocks": [{"type": "section", "text": {"type": "mrkdwn", "text": "\n".join(lines)}}]}
+
+
+def is_sns_event(event):
+    records = event.get("Records") if isinstance(event, dict) else None
+    return isinstance(records, list) and bool(records) and all(r.get("EventSource") == "aws:sns" for r in records)
+
+
 _webhook = None
 
 
@@ -206,6 +228,10 @@ def handler(event, context):
     def send(message):
         post_slack(url, message)
 
+    if is_sns_event(event):
+        for record in event["Records"]:
+            send(format_alarm(record))
+        return {"alarm_notifications_sent": len(event["Records"])}
     if isinstance(event, dict) and event.get("scorecard") is True:
         if not config["simulations_table"]:
             return {"scorecard": "no simulations table configured"}

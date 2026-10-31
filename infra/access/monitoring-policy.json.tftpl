@@ -1,0 +1,15 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {"Sid": "ReadOnlyDiscovery", "Effect": "Allow", "Action": ["cloudwatch:DescribeAlarms", "apigateway:GET"], "Resource": "*"},
+    {"Sid": "ManageHealthTopic", "Effect": "Allow",
+     "Action": ["sns:CreateTopic", "sns:DeleteTopic", "sns:GetTopicAttributes", "sns:SetTopicAttributes", "sns:TagResource", "sns:UntagResource", "sns:ListTagsForResource", "sns:Subscribe", "sns:Unsubscribe", "sns:GetSubscriptionAttributes", "sns:SetSubscriptionAttributes", "sns:ListSubscriptionsByTopic"],
+     "Resource": ["arn:aws:sns:us-east-1:${account_id}:cloud-detection-health", "arn:aws:sns:us-east-1:${account_id}:cloud-detection-health:*"]},
+    {"Sid": "ManageHealthAlarms", "Effect": "Allow",
+     "Action": ["cloudwatch:PutMetricAlarm", "cloudwatch:DeleteAlarms", "cloudwatch:TagResource", "cloudwatch:UntagResource", "cloudwatch:ListTagsForResource"],
+     "Resource": "arn:aws:cloudwatch:us-east-1:${account_id}:alarm:cloud-detection-*"},
+    {"Sid": "AllowTopicToInvokeAlertRunner", "Effect": "Allow",
+     "Action": ["lambda:AddPermission", "lambda:RemovePermission", "lambda:GetPolicy"],
+     "Resource": "arn:aws:lambda:us-east-1:${account_id}:function:cloud-detection-alert-runner"}
+  ]
+}

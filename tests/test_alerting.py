@@ -2,7 +2,7 @@ from datetime import datetime, timezone
 import json
 import unittest
 
-from cloud_detection.alerting import MAX_ALERTS, build_query, format_message, post_slack, run
+from cloud_detection.alerting import MAX_ALERTS, build_query, format_alarm, format_message, is_sns_event, post_slack, run
 from cloud_detection.detections import RULES
 
 NOW = datetime(2026, 10, 30, 0, 30, tzinfo=timezone.utc)
@@ -109,6 +109,26 @@ class AlertingTests(unittest.TestCase):
         self.assertEqual(calls[0][1], {"text": "hi"})
         with self.assertRaises(ValueError):
             post_slack("https://example.com/collect", {"text": "hi"}, opener=opener)
+
+
+class AlarmTests(unittest.TestCase):
+    def sns(self, state):
+        message = {"AlarmName": "cloud-detection-processor-errors", "NewStateValue": state, "AlarmDescription": "Log processor Lambda errors",
+                   "NewStateReason": "Threshold Crossed: 1 datapoint [2.0] was greater than the threshold (0.0).", "StateChangeTime": "2026-10-31T00:00:00Z"}
+        return {"Records": [{"EventSource": "aws:sns", "Sns": {"Message": json.dumps(message)}}]}
+
+    def test_alarm_and_recovery_messages(self):
+        alarm = format_alarm(self.sns("ALARM")["Records"][0])
+        ok = format_alarm(self.sns("OK")["Records"][0])
+        self.assertIn("problem detected", alarm["blocks"][0]["text"]["text"])
+        self.assertIn("cloud-detection-processor-errors", alarm["text"])
+        self.assertIn("recovered", ok["blocks"][0]["text"]["text"])
+
+    def test_only_sns_records_are_treated_as_alarms(self):
+        self.assertTrue(is_sns_event(self.sns("ALARM")))
+        self.assertFalse(is_sns_event({"scorecard": True}))
+        self.assertFalse(is_sns_event({"Records": [{"eventSource": "aws:s3"}]}))
+        self.assertFalse(is_sns_event({}))
 
 
 if __name__ == "__main__":
