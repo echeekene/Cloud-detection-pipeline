@@ -17,7 +17,7 @@ Defined in [infra/cicd](../infra/cicd/main.tf).
 
 | Role | Who can assume it | What it can do |
 | --- | --- | --- |
-| `cloud-detection-github-plan` | This repository, on pull requests and on `main` | AWS `ReadOnlyAccess`, with explicit denies on secrets (SSM parameters, Secrets Manager, KMS decrypt) and data (log contents, DynamoDB items, Athena results, S3 objects other than Terraform state) |
+| `cloud-detection-github-plan` | This repository, on pull requests and on `main` | AWS `ReadOnlyAccess`, with explicit denies on secrets (SSM parameters, Secrets Manager, and KMS decrypt except through Lambda) and data (log contents, DynamoDB items, Athena results, S3 objects other than Terraform state) |
 | `cloud-detection-github-deploy` | This repository, only in the `production` environment | The same scoped policies used for manual deploys ([infra/access](../infra/access)), plus read and write on the state of api, alerts, simulator and monitoring |
 
 Trust conditions match exact `sub` values. GitHub's subject includes numeric owner and repository IDs (`repo:echeekene@201620574/Cloud-detection-pipeline@1440299891:...`), so forks, other branches, other repositories, and even a recreated repository with the same name cannot assume either role. Pull requests from forks skip the AWS jobs entirely.
@@ -55,6 +55,8 @@ In GitHub, under **Settings**:
 ## Lesson
 
 The first runs failed twice. The account ID was saved as an environment secret, which the plan jobs cannot see, so the role ARN was empty. Then AWS rejected the token because I trusted the older subject format without IDs. CloudTrail's `AssumeRoleWithWebIdentity` events showed the exact subject GitHub sent, which is the fastest way to debug OIDC trust.
+
+The next deploy was refused by the fingerprint check, which was the check doing its job. The plan role was denied all KMS decryption, so it could not read Lambda environment variables and planned to add them back, while the deploy role saw no change. KMS decrypt is now allowed only when Lambda makes the call.
 
 ## Trade offs
 

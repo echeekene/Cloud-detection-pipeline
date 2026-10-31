@@ -119,9 +119,19 @@ resource "aws_iam_role_policy" "plan_no_data" {
         Effect = "Deny"
         Action = [
           "ssm:GetParameter", "ssm:GetParameters", "ssm:GetParametersByPath", "ssm:GetParameterHistory",
-          "secretsmanager:GetSecretValue", "kms:Decrypt",
+          "secretsmanager:GetSecretValue",
         ]
         Resource = "*"
+      },
+      {
+        # Lambda decrypts function environment variables with the caller's KMS rights when Terraform
+        # reads a function. Blocking that made plans show every variable as missing, so allow
+        # decryption only through Lambda and deny it everywhere else.
+        Sid       = "DenyDecryptExceptLambdaConfig"
+        Effect    = "Deny"
+        Action    = "kms:Decrypt"
+        Resource  = "*"
+        Condition = { StringNotEquals = { "kms:ViaService" = "lambda.us-east-1.amazonaws.com" } }
       },
       {
         Sid    = "DenyLogAndFindingData"

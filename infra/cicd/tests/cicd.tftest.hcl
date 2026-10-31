@@ -48,6 +48,10 @@ run "plan_role_cannot_read_data_or_secrets" {
     condition     = alltrue([for s in jsondecode(aws_iam_role_policy.plan_no_data.policy).Statement : s.Effect == "Deny"]) && contains(jsondecode(aws_iam_role_policy.plan_no_data.policy).Statement[0].Action, "ssm:GetParameter")
     error_message = "Deny secret and data reads on top of ReadOnlyAccess."
   }
+  assert {
+    condition     = jsondecode(aws_iam_role_policy.plan_no_data.policy).Statement[1].Condition.StringNotEquals["kms:ViaService"] == "lambda.us-east-1.amazonaws.com"
+    error_message = "KMS decrypt is denied except when Lambda reads function configuration."
+  }
 }
 
 run "deploy_role_gets_only_the_delivery_modules" {
