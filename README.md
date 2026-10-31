@@ -162,7 +162,8 @@ GitHub Actions runs the Python suite, both examples, and Terraform format, valid
 - The simulator acts only on canary resources with no permissions and restores every change in a `finally` block.
 - **Accepted risk:** my daily admin user `ekene-security-admin` keeps `IAMFullAccess`. Without it I would need the root user to change IAM, which is worse. MFA stays on, CI never uses this user, and in a team setting this would become a separate admin role that requires MFA to assume.
 - Real account access keeps MFA on. The no MFA rule is tested with synthetic events instead.
-- Spending ceiling for the whole build is **$20**. The billing console showed an estimated $0.00 with the bill still pending. Budget alerts warn but do not stop charges, so the real control is tearing the lab down.
+- Spending ceiling for the whole build is **$20**. Cost Explorer reported **$0.00 for October 2026**, all within the free tier. Budget alerts warn but do not stop charges, so the real control is tearing the lab down.
+- CloudTrail log file validation is on. A digest check found 144 of 144 log files intact, with one gap that matches the time the project was paused. See [validation notes](docs/VALIDATION.md).
 
 ## Mistakes and what I learned
 
@@ -202,7 +203,7 @@ GitHub Actions runs the Python suite, both examples, and Terraform format, valid
 - Events repeated across different log files can be counted more than once, and Lambda output is not written atomically across partitions.
 - Alerts and health alarms share one Slack channel with no backup channel.
 - Foundation, analytics and automation are still deployed by hand.
-- CloudTrail digest validation, a measured final cost, and a tested teardown are not finished yet.
+- A tested teardown is not finished yet.
 
 ## Repository layout
 
@@ -230,4 +231,4 @@ docs/               Setup, decisions, investigation, runbooks, API spec, evidenc
 
 ## What is next
 
-Validate the CloudTrail digest chain, measure the final cost, and tear down the AWS resources with a tested procedure. AI summaries of findings are an optional addition. Progress is tracked in the [roadmap](docs/ROADMAP.md).
+Tear down the AWS resources with a tested procedure before November 15. AI summaries of findings are an optional addition. Progress is tracked in the [roadmap](docs/ROADMAP.md).

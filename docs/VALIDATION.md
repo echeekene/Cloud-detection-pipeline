@@ -105,3 +105,12 @@ A deliberately invalid notification reached the encrypted failure queue after tw
 The local suite now passes 52 Python tests and 12 Terraform mock tests. The three new automation mock tests cover disabled-by-default notifications, filtered enablement, runtime permissions and retention, and the shared-concurrency option needed by the small account quota. Live processing uses the account's shared limit of ten, with no per-function reservation. See [automation details](AUTOMATION.md) and [aggregate evidence](evidence/automation-verification.json).
 
 The billing console showed an estimated USD 0.00 with the bill pending. This is a current-period account estimate, not a final project total. Logging and automatic transformation remain active; Splunk forwarding and detection scheduling are still manual.
+
+## Log integrity and cost (October 30, 2026)
+
+**CloudTrail digest validation.** `aws cloudtrail validate-logs` over the trail found **13 of 13 digest files and 144 of 144 log files valid** for October 28, 20:52 UTC to October 31, 01:20 UTC. No delivered log file was altered or deleted. Earlier logs had already expired under the 30 day raw retention or predate validation.
+
+The tool reported one delivery gap, from **October 29, 06:52 UTC to October 30, 22:20 UTC**. That is the period the project was paused (logging stopped) until I resumed it through Terraform, so the gap is expected and matches the pause record in [AUTOMATION.md](AUTOMATION.md). The attack simulator's `StopLogging` runs last a few seconds and do not create gaps at the digest level, which is why the detection rule, not digest validation, is what catches them.
+
+**Cost.** Cost Explorer reported **USD 0.00 estimated for October 2026** across every service the project uses (CloudTrail, S3, Lambda, Athena, Glue, SQS, SNS, CloudWatch, API Gateway, KMS, CloudShell). Usage stayed inside the free tier, and the tiny negative values were free tier credits. Cost Explorer lags about a day, and CloudFront and Secrets Manager charges belong to a separate portfolio site in the same account. Querying cost needed an inline `ce:GetCostAndUsage` policy on the admin user, because its managed policy slots were full.
+
