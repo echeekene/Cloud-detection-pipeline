@@ -30,9 +30,10 @@ variable "package" {
 }
 
 variable "enabled" {
+  # Paused on November 2, 2026 to keep the lab near zero cost before teardown. Set true to resume.
   description = "Set false to pause scheduled detections through Terraform instead of out-of-band changes."
   type        = bool
-  default     = true
+  default     = false
 }
 
 variable "regions" {

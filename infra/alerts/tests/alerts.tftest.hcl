@@ -27,6 +27,7 @@ variables {
 
 run "scheduled_every_fifteen_minutes_and_bounded" {
   command = apply
+  variables { enabled = true }
   assert {
     condition     = aws_cloudwatch_event_rule.schedule.schedule_expression == "rate(15 minutes)" && aws_cloudwatch_event_rule.schedule.state == "ENABLED"
     error_message = "Detections must run every 15 minutes while enabled."

@@ -30,9 +30,10 @@ variable "package" {
 }
 
 variable "enabled" {
+  # Paused on November 2, 2026 to keep the lab near zero cost before teardown. Set true to resume.
   description = "Set false to stop scheduled simulations through Terraform."
   type        = bool
-  default     = true
+  default     = false
 }
 
 variable "schedule" {

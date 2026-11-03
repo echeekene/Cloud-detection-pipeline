@@ -82,6 +82,8 @@ Checks are recorded in [validation notes](docs/VALIDATION.md) and [evidence repo
 
 ## Live alerting and attack simulation
 
+**Status:** schedules paused on November 2, 2026 to keep cost near zero before teardown. Everything stays deployed and resumes by setting `enabled = true` in the alerts and simulator modules.
+
 Every 15 minutes a scheduled Lambda runs all six detections over new events and posts each new finding to Slack once. Every six hours an attack simulator performs one harmless, reversible action on canary resources, and a daily scorecard reports how many were caught. First scorecard: **2 of 2 simulated attacks detected, median time to detect 10 minutes.**
 
 A simulated `StopLogging` event, alerted about 10 minutes after it happened (00:32:30 UTC event, 7:42 PM Central alert). The account ID is redacted:
